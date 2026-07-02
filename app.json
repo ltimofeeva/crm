@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Практика",
+    "slug": "psy-crm-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "praktika",
+    "splash": { "backgroundColor": "#F3F5F2", "resizeMode": "contain" },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ltimofeeva.praktika",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.ltimofeeva.praktika",
+      "versionCode": 1
+    },
+    "extra": {
+      "backendUrl": "http://localhost:8787",
+      "revenueCatIosKey": "",
+      "revenueCatAndroidKey": "",
+      "revenueCatEntitlement": "pro"
+    }
+  }
+}
