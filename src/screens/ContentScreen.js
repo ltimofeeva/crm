@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import { Card, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
 import {
   getContent, addContentItem, moveContentItem, deleteContentItem,
 } from "../storage/store";
@@ -78,6 +78,8 @@ export default function ContentScreen({ navigation }) {
           onPress={genState === "loading" ? undefined : genIdeas}
         />
       </View>
+
+      <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
 
       <View style={styles.segbar}>
         {SEGS.map((s) => (

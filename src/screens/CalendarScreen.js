@@ -8,6 +8,7 @@ import { C, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton } from "../components/ui";
 import {
   getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
+  getBlocks, addBlock, deleteBlock,
 } from "../storage/store";
 
 const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -39,6 +40,28 @@ function fmtDay(key) {
 
 const EMPTY_FORM = { clientId: null, productId: null, title: "", time: "", durationMin: "" };
 
+// "12:30" → минуты от полуночи; некорректное значение → NaN.
+function toMin(t) {
+  const m = /^(\d{1,2})[:.](\d{2})$/.exec((t || "").trim());
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : NaN;
+}
+
+// Дата из "01.07.2026" или "2026-07-01" → "2026-07-01"; иначе "".
+function parseDateInput(s) {
+  const v = (s || "").trim();
+  if (!v) return "";
+  let m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(v);
+  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  return m ? v : "";
+}
+
+function showDate(iso) {
+  if (!iso) return "";
+  const [y, mo, d] = iso.split("-");
+  return `${d}.${mo}.${y}`;
+}
+
 export default function CalendarScreen({ navigation }) {
   const [cursor, setCursor] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
   const [selected, setSelected] = useState(dateKey(new Date()));
@@ -46,15 +69,25 @@ export default function CalendarScreen({ navigation }) {
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
   const [schedule, setSchedule] = useState(null);
+  const [blocks, setBlocks] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
+  const [blockForm, setBlockForm] = useState({ start: "", end: "" });
+  const [schedFrom, setSchedFrom] = useState("");
+  const [schedTo, setSchedTo] = useState("");
 
   const load = useCallback(async () => {
     setEvents(await getEvents());
     setClients(await getClients());
     setProducts(await getProducts());
-    setSchedule(await getSchedule());
+    const s = await getSchedule();
+    setSchedule(s);
+    setSchedFrom(showDate(s.from));
+    setSchedTo(showDate(s.to));
+    setBlocks(await getBlocks());
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -76,11 +109,19 @@ export default function CalendarScreen({ navigation }) {
     durationMin: f.productId === p.id ? "" : String(p.durationMin),
   }));
 
+  const dayBlocks = blocks.filter((b) => b.date === selected);
+
   const save = async () => {
     const time = form.time.trim();
-    if (!/^\d{1,2}[:.]\d{2}$/.test(time)) return;
+    if (!/^\d{1,2}[:.]\d{2}$/.test(time)) { setFormError("Укажите время в формате 14:00"); return; }
     const client = clients.find((c) => c.id === form.clientId);
     const product = products.find((p) => p.id === form.productId);
+    // Проверяем пересечение с закрытым временем.
+    const startM = toMin(time);
+    const durM = parseInt(form.durationMin, 10) || product?.durationMin || 50;
+    const clash = dayBlocks.find((b) => startM < toMin(b.end) && startM + durM > toMin(b.start));
+    if (clash) { setFormError(`Это время закрыто (${clash.start}–${clash.end}). Выберите другое.`); return; }
+    setFormError("");
     const title = form.title.trim() || (client ? `Сессия: ${client.name}` : "Событие");
     await addEvent({
       date: selected,
@@ -99,9 +140,32 @@ export default function CalendarScreen({ navigation }) {
   };
 
   const toggleDay = (d) => setSchedule((s) => ({ ...s, days: { ...s.days, [d]: !s.days[d] } }));
-  const saveSched = async () => { await saveSchedule(schedule); setSchedOpen(false); };
 
-  const isWorkday = schedule?.days?.[new Date(selected + "T00:00:00").getDay()];
+  const saveSched = async () => {
+    const next = { ...schedule, from: parseDateInput(schedFrom), to: parseDateInput(schedTo) };
+    setSchedule(next);
+    await saveSchedule(next);
+    setSchedOpen(false);
+  };
+
+  const saveBlock = async () => {
+    const s = toMin(blockForm.start);
+    const e = toMin(blockForm.end);
+    if (isNaN(s) || isNaN(e) || e <= s) return;
+    const norm = (t) => t.trim().replace(".", ":").padStart(5, "0");
+    await addBlock({ date: selected, start: norm(blockForm.start), end: norm(blockForm.end) });
+    setBlockForm({ start: "", end: "" });
+    setBlockOpen(false);
+    load();
+  };
+
+  const removeBlock = async (id) => { await deleteBlock(id); load(); };
+
+  // Рабочий ли выбранный день: по дню недели и периоду действия графика.
+  const inPeriod = schedule &&
+    (!schedule.from || selected >= schedule.from) &&
+    (!schedule.to || selected <= schedule.to);
+  const isWorkday = inPeriod && schedule?.days?.[new Date(selected + "T00:00:00").getDay()];
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
@@ -120,12 +184,23 @@ export default function CalendarScreen({ navigation }) {
               </Pressable>
             ))}
           </View>
+          <Text style={styles.label}>Часы работы</Text>
           <View style={styles.rowInputs}>
             <TextInput value={schedule.start} onChangeText={(v) => setSchedule((s) => ({ ...s, start: v }))} placeholder="10:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
             <Text style={{ color: C.inkSoft }}>—</Text>
-            <TextInput value={schedule.end} onChangeText={(v) => setSchedule((s) => ({ ...s, end: v }))} placeholder="19:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput value={schedule.end} onChangeText={(v) => setSchedule((s) => ({ ...s, end: v }))} placeholder="20:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+          </View>
+          <Text style={styles.label}>Период действия (пусто = бессрочно)</Text>
+          <View style={styles.rowInputs}>
+            <TextInput value={schedFrom} onChangeText={setSchedFrom} placeholder="с 01.07.2026" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <Text style={{ color: C.inkSoft }}>—</Text>
+            <TextInput value={schedTo} onChangeText={setSchedTo} placeholder="по 31.07.2026" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
           </View>
           <PrimaryButton title="Сохранить график" tone="accent" onPress={saveSched} />
+          <Text style={styles.formHint}>
+            Закрыть отдельные часы внутри дня (например, обед) можно кнопкой
+            «Закрыть время» под календарём, выбрав нужное число.
+          </Text>
         </Card>
       )}
 
@@ -163,10 +238,41 @@ export default function CalendarScreen({ navigation }) {
         {!formOpen && <PrimaryButton title="＋ Событие" onPress={() => setFormOpen(true)} />}
       </View>
       {schedule && (
-        <Text style={styles.workHint}>
-          {isWorkday ? `Рабочий день · ${schedule.start}–${schedule.end}` : "Выходной по графику"}
-        </Text>
+        <View style={styles.workRow}>
+          <Text style={styles.workHint}>
+            {isWorkday ? `Рабочий день · ${schedule.start}–${schedule.end}` : "Выходной по графику"}
+          </Text>
+          {!blockOpen && (
+            <Pressable onPress={() => setBlockOpen(true)}>
+              <Text style={styles.blockLink}>Закрыть время</Text>
+            </Pressable>
+          )}
+        </View>
       )}
+
+      {blockOpen && (
+        <Card style={styles.form}>
+          <Text style={styles.formTitle}>Закрыть время (серые часы — на них не записывать)</Text>
+          <View style={styles.rowInputs}>
+            <TextInput value={blockForm.start} onChangeText={(v) => setBlockForm((b) => ({ ...b, start: v }))} placeholder="с 12:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <Text style={{ color: C.inkSoft }}>—</Text>
+            <TextInput value={blockForm.end} onChangeText={(v) => setBlockForm((b) => ({ ...b, end: v }))} placeholder="до 14:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+          </View>
+          <View style={styles.rowInputs}>
+            <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setBlockOpen(false)} /></View>
+            <View style={{ flex: 1 }}><PrimaryButton title="Закрыть время" tone="accent" onPress={saveBlock} /></View>
+          </View>
+        </Card>
+      )}
+
+      {dayBlocks.map((b) => (
+        <View key={b.id} style={styles.blockCard}>
+          <Text style={styles.blockText}>⛔ Закрыто · {b.start}–{b.end}</Text>
+          <Pressable onPress={() => removeBlock(b.id)} style={{ padding: 4 }}>
+            <Text style={{ color: C.inkSoft, fontSize: 14 }}>✕</Text>
+          </Pressable>
+        </View>
+      ))}
 
       {formOpen && (
         <Card style={styles.form}>
@@ -207,8 +313,9 @@ export default function CalendarScreen({ navigation }) {
             <TextInput value={form.durationMin} onChangeText={(v) => setForm((f) => ({ ...f, durationMin: v }))} placeholder="Минут" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={[styles.input, { flex: 1 }]} />
           </View>
 
+          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
           <View style={styles.rowInputs}>
-            <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => { setFormOpen(false); setForm(EMPTY_FORM); }} /></View>
+            <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => { setFormOpen(false); setForm(EMPTY_FORM); setFormError(""); }} /></View>
             <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={save} /></View>
           </View>
           {products.length === 0 && (
@@ -260,7 +367,15 @@ const styles = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent, marginTop: 2 },
   dayHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16, marginBottom: 4 },
   dayTitle: { fontSize: 15, fontWeight: "600", color: C.ink },
-  workHint: { fontSize: 11, color: C.inkSoft, marginBottom: 8 },
+  workRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  workHint: { fontSize: 11, color: C.inkSoft },
+  blockLink: { fontSize: 12, color: C.accent, fontWeight: "600" },
+  blockCard: {
+    backgroundColor: "#E7E9E7", borderRadius: 12, padding: 12, marginBottom: 8,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  },
+  blockText: { fontSize: 13, color: C.inkSoft, fontWeight: "600" },
+  formError: { fontSize: 12, color: C.accent, marginBottom: 8 },
   form: { padding: 14, marginBottom: 12 },
   formTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
   label: { fontSize: 11, color: C.inkSoft, marginBottom: 6 },

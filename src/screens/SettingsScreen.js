@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
 import {
   getProducts, addProduct, deleteProduct, getProfile, saveProfile, clearAllData,
 } from "../storage/store";
@@ -116,6 +116,9 @@ export default function SettingsScreen({ navigation }) {
         </Text>
         <Text style={styles.unpackCta}>Начать интервью →</Text>
       </Card>
+      <View style={{ marginTop: 8 }}>
+        <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
+      </View>
 
       <Text style={styles.section}>ПОДПИСКА</Text>
       <Card style={styles.subRow} onPress={() => navigation.navigate("Paywall")}>

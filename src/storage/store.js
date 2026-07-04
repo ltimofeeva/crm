@@ -18,6 +18,8 @@ const KEYS = {
   content: "practice.content.v1",
   schedule: "practice.schedule.v1",
   reminders: "practice.reminders.v1",
+  chat: "practice.chat.v1",
+  blocks: "practice.blocks.v1",
 };
 
 async function read(key, fallback) {
@@ -194,18 +196,41 @@ export async function deleteContentItem(section, id) {
 }
 
 // ---------- График работы ----------
-// { days: {0..6: bool}, start: "10:00", end: "19:00" } (0 = воскресенье)
+// { days: {0..6: bool}, start: "10:00", end: "19:00",
+//   from: "ГГГГ-ММ-ДД" | "", to: "ГГГГ-ММ-ДД" | "" } (0 = воскресенье)
+// from/to — период действия графика; пустые = бессрочно.
 
 export async function getSchedule() {
   return read(KEYS.schedule, {
     days: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: false, 0: false },
     start: "10:00",
     end: "19:00",
+    from: "",
+    to: "",
   });
 }
 
 export async function saveSchedule(schedule) {
   await write(KEYS.schedule, schedule);
+}
+
+// ---------- Закрытое время (серые плашки в календаре) ----------
+// Блок: { id, date: "ГГГГ-ММ-ДД", start: "12:00", end: "14:00" }
+
+export async function getBlocks() {
+  return read(KEYS.blocks, []);
+}
+
+export async function addBlock({ date, start, end }) {
+  const blocks = await getBlocks();
+  const item = { id: Date.now(), date, start, end };
+  await write(KEYS.blocks, [...blocks, item]);
+  return item;
+}
+
+export async function deleteBlock(id) {
+  const blocks = await getBlocks();
+  await write(KEYS.blocks, blocks.filter((b) => b.id !== id));
 }
 
 // ---------- Напоминания (генерирует ИИ) ----------
@@ -217,6 +242,21 @@ export async function getReminders() {
 
 export async function saveReminders(items) {
   await write(KEYS.reminders, { items, updatedAt: Date.now() });
+}
+
+// ---------- История чата с ассистентом ----------
+
+export async function getChatHistory() {
+  return read(KEYS.chat, []);
+}
+
+export async function saveChatHistory(messages) {
+  // Храним последние 60 реплик, чтобы история не разрасталась бесконечно.
+  await write(KEYS.chat, (messages || []).slice(-60));
+}
+
+export async function clearChatHistory() {
+  await AsyncStorage.removeItem(KEYS.chat);
 }
 
 // ---------- Полная очистка (для отладки) ----------

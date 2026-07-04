@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, PrimaryButton } from "../components/ui";
+import { Card, Tag, PrimaryButton, ChatReturnLink } from "../components/ui";
 import { getClients, addSessionNote } from "../storage/store";
 import { analyzeClient, buildFullContext } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -77,6 +77,10 @@ export default function ClientDetailScreen({ route, navigation }) {
           <View style={{ flex: 1 }}><PrimaryButton title="Проанализировать клиента" tone="soft" onPress={runAnalysis} /></View>
         </View>
       )}
+
+      <View style={{ marginTop: 10 }}>
+        <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
+      </View>
 
       {noteOpen && (
         <Card style={{ padding: 14 }}>

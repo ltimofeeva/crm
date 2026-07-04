@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
 import { getClients, getEvents, getReminders, saveReminders } from "../storage/store";
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -62,6 +62,8 @@ export default function DashboardScreen({ navigation }) {
       <H1 sub={todayEvents.length ? `Записей на сегодня: ${todayEvents.length}` : "Записей на сегодня нет"}>
         {todayTitle()}
       </H1>
+
+      <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
 
       {clients.length === 0 && (
         <Card style={styles.welcome} onPress={() => navigation.navigate("Clients")}>

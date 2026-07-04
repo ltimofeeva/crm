@@ -2,6 +2,15 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { C, SERIF } from "../theme";
 
+// Ссылка «Вернуться в чат» — открывает ассистента с сохранённой историей.
+export function ChatReturnLink({ onPress }) {
+  return (
+    <Pressable onPress={onPress} style={styles.chatLink}>
+      <Text style={styles.chatLinkT}>💬 Вернуться в чат →</Text>
+    </Pressable>
+  );
+}
+
 export function Card({ children, style, onPress }) {
   const Comp = onPress ? Pressable : View;
   return (
@@ -51,6 +60,8 @@ export function PrimaryButton({ title, onPress, icon, tone = "primary" }) {
 }
 
 const styles = StyleSheet.create({
+  chatLink: { alignSelf: "flex-start", marginBottom: 10 },
+  chatLinkT: { fontSize: 12, color: C.primary, fontWeight: "600" },
   card: {
     backgroundColor: C.white,
     borderRadius: 16,

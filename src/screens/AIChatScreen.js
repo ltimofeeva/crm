@@ -6,6 +6,7 @@ import {
 import { C } from "../theme";
 import { PrimaryButton } from "../components/ui";
 import { sendChat, buildFullContext, UNPACK_SYSTEM } from "../api/ai";
+import { getChatHistory, saveChatHistory, clearChatHistory } from "../storage/store";
 import { useSubscription } from "../context/SubscriptionContext";
 
 const QUICK = [
@@ -22,6 +23,7 @@ export default function AIChatScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [system, setSystem] = useState("");
+  const [ready, setReady] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -30,8 +32,22 @@ export default function AIChatScreen({ route, navigation }) {
       // Режим «распаковки» из настроек: добавляем роль интервьюера.
       if (route.params?.unpack) s = `${s}\n\n${UNPACK_SYSTEM}`;
       setSystem(s);
+      // Восстанавливаем историю диалога — чат продолжается с того же места.
+      setMessages(await getChatHistory());
+      setReady(true);
     })();
   }, [route.params?.unpack]);
+
+  // Сохраняем историю после каждого изменения (когда она уже загружена).
+  useEffect(() => {
+    if (ready) saveChatHistory(messages);
+  }, [messages, ready]);
+
+  const resetChat = async () => {
+    await clearChatHistory();
+    setMessages([]);
+    setError(null);
+  };
 
   const send = async (text) => {
     const userText = (text ?? input).trim();
@@ -71,6 +87,11 @@ export default function AIChatScreen({ route, navigation }) {
         contentContainerStyle={styles.scroll}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
+        {messages.length > 0 && (
+          <Pressable onPress={resetChat} style={styles.resetBtn}>
+            <Text style={styles.resetText}>⟳ Начать новый диалог</Text>
+          </Pressable>
+        )}
         {messages.length === 0 && (
           <View style={{ paddingTop: 8 }}>
             <Text style={styles.intro}>Спросите про клиента, попросите подготовить к сессии, разобрать бизнес или придумать пост — у ассистента есть контекст всей практики.</Text>
@@ -111,6 +132,8 @@ const styles = StyleSheet.create({
   lockTitle: { fontSize: 17, fontWeight: "600", color: C.ink, textAlign: "center" },
   lockText: { fontSize: 13, color: C.inkSoft, textAlign: "center", lineHeight: 19, marginBottom: 8 },
   scroll: { padding: 16 },
+  resetBtn: { alignSelf: "center", marginBottom: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  resetText: { fontSize: 12, color: C.inkSoft },
   intro: { fontSize: 13, color: C.inkSoft, textAlign: "center", lineHeight: 19, paddingHorizontal: 12, marginBottom: 16 },
   quick: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 12, marginBottom: 8 },
   quickText: { fontSize: 13, color: C.ink },
