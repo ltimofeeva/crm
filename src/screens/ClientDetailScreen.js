@@ -60,12 +60,14 @@ export default function ClientDetailScreen({ route, navigation }) {
         <View style={styles.headTop}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, SERIF]}>{client.name}</Text>
-            <Text style={styles.meta}>{client.age} лет · с {client.since} · {client.sessionsCount} сессий</Text>
+            <Text style={styles.meta}>
+              {[client.age ? `${client.age} лет` : null, client.since ? `с ${client.since}` : null, `${client.sessionsCount || 0} сессий`].filter(Boolean).join(" · ")}
+            </Text>
           </View>
           <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
         </View>
-        <View style={styles.field}><Text style={styles.fieldL}>Запрос</Text><Text style={styles.fieldV}>{client.request}</Text></View>
-        <View style={styles.field}><Text style={styles.fieldL}>Формат · контакт</Text><Text style={styles.fieldV}>{client.format} · {client.phone}</Text></View>
+        <View style={styles.field}><Text style={styles.fieldL}>Запрос</Text><Text style={styles.fieldV}>{client.request || "—"}</Text></View>
+        <View style={styles.field}><Text style={styles.fieldL}>Формат · контакт</Text><Text style={styles.fieldV}>{[client.format, client.phone].filter(Boolean).join(" · ") || "—"}</Text></View>
         <Text style={styles.next}>Следующая: {client.nextSession}</Text>
       </Card>
 
@@ -126,7 +128,16 @@ export default function ClientDetailScreen({ route, navigation }) {
       )}
 
       <Text style={styles.section}>ИСТОРИЯ СЕССИЙ</Text>
-      {client.sessions.map((s) => (
+      {(client.sessions || []).length === 0 && (
+        <Card style={{ padding: 14 }}>
+          <Text style={{ fontSize: 13, color: C.inkSoft, lineHeight: 19 }}>
+            Пока нет заметок. После сессии нажмите «Заметка» и запишите главное —
+            темы, динамику, договорённости. По этим записям ассистент будет
+            готовить вас к следующим встречам.
+          </Text>
+        </Card>
+      )}
+      {(client.sessions || []).map((s) => (
         <Card key={s.n} style={styles.sess}>
           <View style={styles.sessTop}>
             <Text style={styles.sessN}>№{s.n} · {s.date}</Text>

@@ -9,20 +9,16 @@
 // модуль, поэтому заменить хранилище на зашифрованное можно в одном месте.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SEED_CLIENTS } from "../data/seed";
 
 const CLIENTS_KEY = "practice.clients.v1";
 
 export async function getClients() {
   try {
     const raw = await AsyncStorage.getItem(CLIENTS_KEY);
-    if (raw) return JSON.parse(raw);
-    // Первый запуск — засеваем демо-данными.
-    await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(SEED_CLIENTS));
-    return SEED_CLIENTS;
+    return raw ? JSON.parse(raw) : [];
   } catch (e) {
     console.warn("getClients error", e);
-    return SEED_CLIENTS;
+    return [];
   }
 }
 
@@ -34,26 +30,45 @@ export async function saveClients(clients) {
   }
 }
 
+// Добавить нового клиента. Обязательное поле — только имя.
+export async function addClient({ name, age, request, format, phone }) {
+  const clients = await getClients();
+  const client = {
+    id: Date.now(),
+    name: name.trim(),
+    age: (age || "").toString().trim(),
+    request: (request || "").trim(),
+    format: (format || "").trim() || "Онлайн",
+    phone: (phone || "").trim(),
+    status: "Активный",
+    since: new Date().toLocaleDateString("ru-RU", { month: "short", year: "numeric" }),
+    nextSession: "—",
+    sessionsCount: 0,
+    sessions: [],
+  };
+  await saveClients([client, ...clients]);
+  return client;
+}
+
 // Добавить заметку к сессии конкретного клиента и сохранить.
 export async function addSessionNote(clientId, note) {
   const clients = await getClients();
   const next = clients.map((c) => {
     if (c.id !== clientId) return c;
-    const n = c.sessionsCount + 1;
+    const n = (c.sessionsCount || 0) + 1;
     const entry = {
       n,
       date: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }),
       note,
       mood: "→ Ровно",
     };
-    return { ...c, sessionsCount: n, sessions: [entry, ...c.sessions] };
+    return { ...c, sessionsCount: n, sessions: [entry, ...(c.sessions || [])] };
   });
   await saveClients(next);
   return next;
 }
 
-// Полный сброс к демо-данным (пункт в настройках / для отладки).
-export async function resetToSeed() {
-  await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(SEED_CLIENTS));
-  return SEED_CLIENTS;
+// Полная очистка данных (для отладки).
+export async function clearAllData() {
+  await AsyncStorage.removeItem(CLIENTS_KEY);
 }

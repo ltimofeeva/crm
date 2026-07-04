@@ -17,11 +17,20 @@
       "package": "com.ltimofeeva.praktika",
       "versionCode": 1
     },
+    "updates": {
+      "url": "https://u.expo.dev/e8320eb5-fed2-45be-8590-08b2323e99a6"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "extra": {
-      "backendUrl": "http://localhost:8787",
+      "backendUrl": "https://crm-xq2d.onrender.com",
       "revenueCatIosKey": "",
       "revenueCatAndroidKey": "",
-      "revenueCatEntitlement": "pro"
+      "revenueCatEntitlement": "pro",
+      "eas": {
+        "projectId": "e8320eb5-fed2-45be-8590-08b2323e99a6"
+      }
     }
   }
 }

@@ -1,17 +1,19 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
-import { FINANCE_ROWS } from "../data/seed";
+import { Card, H1, PrimaryButton } from "../components/ui";
 
 export default function FinanceScreen({ navigation }) {
   const stats = [
-    { l: "Июнь", v: "120к ₽" },
-    { l: "Ожидает", v: "4 000 ₽" },
-    { l: "Ср. чек", v: "4 300 ₽" },
+    { l: "Этот месяц", v: "0 ₽" },
+    { l: "Ожидает оплаты", v: "0 ₽" },
+    { l: "Средний чек", v: "—" },
   ];
+
   const askBiz = () =>
-    navigation.navigate("AIChat", { preset: "Проанализируй мою деятельность за прошлый месяц (доход, загрузку, средний чек, воронку) и составь пошаговый план выйти на доход x2 в следующем месяце. Опирайся на реальные цифры, дай реалистичные варианты и честно отметь риски." });
+    navigation.navigate("AIChat", {
+      preset: "Помоги с финансами практики: я назову свой доход, число сессий и цену, а ты подскажи, как считать ключевые показатели и составь план роста дохода с реалистичными сценариями. Начни с вопросов, какие цифры тебе нужны.",
+    });
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -19,6 +21,7 @@ export default function FinanceScreen({ navigation }) {
         <H1>Финансы</H1>
         <PrimaryButton title="Анализ бизнеса" tone="soft" onPress={askBiz} />
       </View>
+
       <View style={styles.statsRow}>
         {stats.map((s) => (
           <Card key={s.l} style={styles.stat}>
@@ -27,14 +30,18 @@ export default function FinanceScreen({ navigation }) {
           </Card>
         ))}
       </View>
-      {FINANCE_ROWS.map((r, i) => (
-        <Card key={i} style={styles.row}>
-          <Text style={styles.date}>{r.date}</Text>
-          <Text style={styles.client} numberOfLines={1}>{r.client}</Text>
-          <Text style={styles.sum}>{r.sum}</Text>
-          <Tag tone={r.paid ? "green" : "clay"}>{r.paid ? "Оплачено" : "Ожидает"}</Tag>
-        </Card>
-      ))}
+
+      <Card style={styles.empty}>
+        <Text style={styles.emptyTitle}>Оплаты пока не ведутся</Text>
+        <Text style={styles.emptyText}>
+          Здесь появится учёт оплат по сессиям: кто оплатил, кто ожидает,
+          доход за месяц и средний чек. Эта функция в разработке.
+        </Text>
+        <Text style={styles.emptyText2}>
+          Уже сейчас можно посоветоваться с ассистентом о ценообразовании и
+          плане дохода — нажмите «Анализ бизнеса».
+        </Text>
+      </Card>
     </ScrollView>
   );
 }
@@ -45,9 +52,9 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: "row", gap: 8, marginVertical: 12 },
   stat: { flex: 1, padding: 12, alignItems: "center" },
   statV: { fontSize: 18, color: C.ink },
-  statL: { fontSize: 11, color: C.inkSoft, marginTop: 2 },
-  row: { padding: 14, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  date: { fontSize: 12, color: C.inkSoft, width: 48 },
-  client: { fontSize: 14, color: C.ink, flex: 1 },
-  sum: { fontSize: 14, fontWeight: "600", color: C.ink },
+  statL: { fontSize: 11, color: C.inkSoft, marginTop: 2, textAlign: "center" },
+  empty: { padding: 18 },
+  emptyTitle: { fontSize: 15, fontWeight: "600", color: C.ink, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
+  emptyText2: { fontSize: 13, color: C.ink, lineHeight: 19, marginTop: 10 },
 });

@@ -1,24 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { C } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
-import { CONTENT } from "../data/seed";
-
-const SEGS = [
-  { key: "ideas", title: "Идеи" },
-  { key: "drafts", title: "Черновики" },
-  { key: "published", title: "Готово" },
-];
+import { Card, H1, PrimaryButton } from "../components/ui";
 
 export default function ContentScreen({ navigation }) {
-  const [seg, setSeg] = useState("ideas");
-  const items = CONTENT[seg];
-
   const askIdeas = () =>
-    navigation.navigate("AIChat", { preset: "Предложи 3 новые идеи постов на основе тем из последних сессий и того, что уже сработало в опубликованном" });
+    navigation.navigate("AIChat", {
+      preset: "Предложи 3 идеи постов для психолога (Telegram или Instagram). Если у меня уже есть клиенты и заметки — опирайся на их темы, иначе предложи универсальные темы и спроси про мою специализацию.",
+    });
 
-  const draft = (it) =>
-    navigation.navigate("AIChat", { preset: `Помоги с постом «${it.title}»${it.channel ? ` для канала ${it.channel}` : ""}: напиши черновик текста` });
+  const askPlan = () =>
+    navigation.navigate("AIChat", {
+      preset: "Помоги составить контент-план на 2 недели для продвижения частной практики психолога: какие форматы, как часто публиковать и с чего начать.",
+    });
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -27,42 +21,38 @@ export default function ContentScreen({ navigation }) {
         <PrimaryButton title="Идеи от ИИ" tone="soft" onPress={askIdeas} />
       </View>
 
-      <View style={styles.segbar}>
-        {SEGS.map((s) => (
-          <Text
-            key={s.key}
-            onPress={() => setSeg(s.key)}
-            style={[styles.seg, seg === s.key && styles.segActive]}
-          >
-            {s.title} <Text style={styles.segCount}>{CONTENT[s.key].length}</Text>
-          </Text>
-        ))}
-      </View>
+      <Card style={styles.empty}>
+        <Text style={styles.emptyTitle}>Контент — двигатель практики</Text>
+        <Text style={styles.emptyText}>
+          Посты о темах, с которыми вы работаете, приводят новых клиентов.
+          Ассистент поможет: предложит идеи из тем ваших сессий, напишет
+          черновик и адаптирует под Telegram или Instagram.
+        </Text>
+      </Card>
 
-      {items.map((it) => (
-        <Card key={it.id} style={styles.item} onPress={seg !== "published" ? () => draft(it) : undefined}>
-          <Text style={styles.itemTitle}>{it.title}</Text>
-          {it.src ? <Text style={styles.itemSub}>💭 {it.src}</Text> : null}
-          {it.channel ? <Text style={styles.itemSub}>{it.channel}</Text> : null}
-          {it.progress ? <View style={{ marginTop: 8 }}><Tag tone="clay">{it.progress}</Tag></View> : null}
-          {it.stats ? <Text style={styles.itemStat}>{it.date} · {it.stats}</Text> : null}
-          {seg !== "published" ? <Text style={styles.tap}>Нажмите — ИИ напишет черновик →</Text> : null}
-        </Card>
-      ))}
+      <Card style={styles.action} onPress={askIdeas}>
+        <Text style={styles.actionTitle}>Идеи постов</Text>
+        <Text style={styles.actionText}>3 темы на основе ваших сессий</Text>
+        <Text style={styles.cta}>Спросить →</Text>
+      </Card>
+
+      <Card style={styles.action} onPress={askPlan}>
+        <Text style={styles.actionTitle}>Контент-план на 2 недели</Text>
+        <Text style={styles.actionText}>Форматы, частота, с чего начать</Text>
+        <Text style={styles.cta}>Составить →</Text>
+      </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  segbar: { flexDirection: "row", backgroundColor: "#E9EDE9", borderRadius: 12, padding: 4, gap: 4, marginBottom: 16, marginTop: 8 },
-  seg: { flex: 1, textAlign: "center", paddingVertical: 8, borderRadius: 8, fontSize: 13, color: C.inkSoft, overflow: "hidden" },
-  segActive: { backgroundColor: C.white, color: C.ink, fontWeight: "600" },
-  segCount: { fontSize: 11, color: C.inkSoft },
-  item: { padding: 14, marginBottom: 8 },
-  itemTitle: { fontSize: 14, fontWeight: "600", color: C.ink, lineHeight: 19 },
-  itemSub: { fontSize: 12, color: C.inkSoft, marginTop: 6 },
-  itemStat: { fontSize: 12, color: C.primary, marginTop: 6 },
-  tap: { fontSize: 11, color: C.primary, marginTop: 8 },
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  empty: { padding: 18, marginBottom: 12 },
+  emptyTitle: { fontSize: 15, fontWeight: "600", color: C.ink, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
+  action: { padding: 14, marginBottom: 8 },
+  actionTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
+  actionText: { fontSize: 12, color: C.inkSoft, marginTop: 4 },
+  cta: { fontSize: 11, color: C.primary, marginTop: 8 },
 });
