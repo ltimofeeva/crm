@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -8,21 +8,18 @@ import { C } from "./src/theme";
 import { SubscriptionProvider } from "./src/context/SubscriptionContext";
 
 import DashboardScreen from "./src/screens/DashboardScreen";
+import CalendarScreen from "./src/screens/CalendarScreen";
 import ClientsScreen from "./src/screens/ClientsScreen";
 import ClientDetailScreen from "./src/screens/ClientDetailScreen";
 import ContentScreen from "./src/screens/ContentScreen";
 import AnalyticsScreen from "./src/screens/AnalyticsScreen";
-import FinanceScreen from "./src/screens/FinanceScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 import AIChatScreen from "./src/screens/AIChatScreen";
 import PaywallScreen from "./src/screens/PaywallScreen";
+import EventDetailScreen from "./src/screens/EventDetailScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-
-// Простая текстовая иконка вкладки (без доп. библиотек иконок).
-function TabIcon({ label, focused }) {
-  return <Text style={{ fontSize: 11, color: focused ? C.primary : C.inkSoft, fontWeight: focused ? "700" : "400" }}>{label}</Text>;
-}
 
 // Стек для вкладки «Клиенты»: список + карточка клиента.
 function ClientsStack() {
@@ -34,6 +31,10 @@ function ClientsStack() {
   );
 }
 
+const TAB_ICONS = {
+  Today: "◎", CalendarTab: "▦", Clients: "☺", Content: "✎", Analytics: "▤", Settings: "⚙",
+};
+
 function Tabs() {
   return (
     <Tab.Navigator
@@ -42,17 +43,18 @@ function Tabs() {
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.inkSoft,
         tabBarStyle: { backgroundColor: C.white, borderTopColor: C.line, height: 60, paddingBottom: 8, paddingTop: 6 },
-        tabBarIcon: ({ focused }) => {
-          const labels = { Today: "◎", Clients: "☺", Content: "✎", Analytics: "▤", Finance: "₽" };
-          return <Text style={{ fontSize: 18, color: focused ? C.primary : C.inkSoft }}>{labels[route.name]}</Text>;
-        },
+        tabBarLabelStyle: { fontSize: 10 },
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 17, color: focused ? C.primary : C.inkSoft }}>{TAB_ICONS[route.name]}</Text>
+        ),
       })}
     >
       <Tab.Screen name="Today" component={DashboardScreen} options={{ title: "Сегодня" }} />
+      <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: "Календарь" }} />
       <Tab.Screen name="Clients" component={ClientsStack} options={{ title: "Клиенты" }} />
       <Tab.Screen name="Content" component={ContentScreen} options={{ title: "Контент" }} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ title: "Аналитика" }} />
-      <Tab.Screen name="Finance" component={FinanceScreen} options={{ title: "Финансы" }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Ещё" }} />
     </Tab.Navigator>
   );
 }
@@ -78,6 +80,11 @@ export default function App() {
             name="Paywall"
             component={PaywallScreen}
             options={{ title: "Подписка", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
+          />
+          <Stack.Screen
+            name="EventDetail"
+            component={EventDetailScreen}
+            options={{ title: "Событие", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>

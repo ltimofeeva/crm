@@ -3,7 +3,7 @@ import { ScrollView, View, Text, TextInput, StyleSheet, ActivityIndicator } from
 import { C, SERIF } from "../theme";
 import { Card, Tag, PrimaryButton } from "../components/ui";
 import { getClients, addSessionNote } from "../storage/store";
-import { analyzeClient, buildContext } from "../api/ai";
+import { analyzeClient, buildFullContext } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 
 const TREND = {
@@ -44,8 +44,8 @@ export default function ClientDetailScreen({ route, navigation }) {
     }
     setAState("loading");
     try {
-      const all = await getClients();
-      const res = await analyzeClient({ client, system: buildContext(all) });
+      const system = await buildFullContext();
+      const res = await analyzeClient({ client, system });
       setAnalysis(res); setAState("done");
     } catch (e) {
       setAState("error");
@@ -74,7 +74,7 @@ export default function ClientDetailScreen({ route, navigation }) {
       {!noteOpen && (
         <View style={styles.actions}>
           <View style={{ flex: 1 }}><PrimaryButton title="Заметка" tone="accent" onPress={() => setNoteOpen(true)} /></View>
-          <View style={{ flex: 1 }}><PrimaryButton title="Анализ ИИ" tone="soft" onPress={runAnalysis} /></View>
+          <View style={{ flex: 1 }}><PrimaryButton title="Проанализировать клиента" tone="soft" onPress={runAnalysis} /></View>
         </View>
       )}
 
@@ -109,6 +109,24 @@ export default function ClientDetailScreen({ route, navigation }) {
             <>
               <Text style={styles.aLabel}>Ключевые темы</Text>
               <View style={styles.themeWrap}>{analysis.themes.map((t, i) => <Tag key={i}>{t}</Tag>)}</View>
+            </>
+          ) : null}
+          {analysis.results?.length ? (
+            <>
+              <Text style={styles.aLabel}>Результаты по сессиям</Text>
+              {analysis.results.map((t, i) => <Text key={i} style={styles.bullet}>— {t}</Text>)}
+            </>
+          ) : null}
+          {analysis.products?.length ? (
+            <>
+              <Text style={styles.aLabel}>Какие продукты могут подойти</Text>
+              {analysis.products.map((t, i) => <Text key={i} style={styles.bullet}>— {t}</Text>)}
+            </>
+          ) : null}
+          {analysis.approach ? (
+            <>
+              <Text style={styles.aLabel}>Как взаимодействовать</Text>
+              <Text style={styles.bullet}>{analysis.approach}</Text>
             </>
           ) : null}
           {analysis.attention?.length ? (

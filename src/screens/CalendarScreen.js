@@ -1,0 +1,285 @@
+// Календарь: сетка месяца, события дня, запись клиента на продукт,
+// свои мероприятия и настройка рабочего графика.
+
+import React, { useState, useCallback } from "react";
+import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { C, SERIF } from "../theme";
+import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import {
+  getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
+} from "../storage/store";
+
+const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Пн..Вс в терминах getDay()
+
+export function dateKey(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function monthMatrix(year, month) {
+  const first = new Date(year, month, 1);
+  const shift = (first.getDay() + 6) % 7; // 0 = понедельник
+  const daysIn = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < shift; i++) cells.push(null);
+  for (let d = 1; d <= daysIn; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+function fmtDay(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  const s = new Date(y, m - 1, d).toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const EMPTY_FORM = { clientId: null, productId: null, title: "", time: "", durationMin: "" };
+
+export default function CalendarScreen({ navigation }) {
+  const [cursor, setCursor] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
+  const [selected, setSelected] = useState(dateKey(new Date()));
+  const [events, setEvents] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [schedule, setSchedule] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const load = useCallback(async () => {
+    setEvents(await getEvents());
+    setClients(await getClients());
+    setProducts(await getProducts());
+    setSchedule(await getSchedule());
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const weeks = monthMatrix(cursor.getFullYear(), cursor.getMonth());
+  const monthTitle = cursor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  const todayKey = dateKey(new Date());
+  const dayEvents = events.filter((e) => e.date === selected);
+  const eventDates = new Set(events.map((e) => e.date));
+
+  const pickClient = (c) => setForm((f) => ({
+    ...f,
+    clientId: f.clientId === c.id ? null : c.id,
+    title: f.clientId === c.id ? "" : `Сессия: ${c.name}`,
+  }));
+
+  const pickProduct = (p) => setForm((f) => ({
+    ...f,
+    productId: f.productId === p.id ? null : p.id,
+    durationMin: f.productId === p.id ? "" : String(p.durationMin),
+  }));
+
+  const save = async () => {
+    const time = form.time.trim();
+    if (!/^\d{1,2}[:.]\d{2}$/.test(time)) return;
+    const client = clients.find((c) => c.id === form.clientId);
+    const product = products.find((p) => p.id === form.productId);
+    const title = form.title.trim() || (client ? `Сессия: ${client.name}` : "Событие");
+    await addEvent({
+      date: selected,
+      time: time.replace(".", ":").padStart(5, "0"),
+      durationMin: parseInt(form.durationMin, 10) || product?.durationMin || 50,
+      title,
+      clientId: client?.id || null,
+      clientName: client?.name || null,
+      productId: product?.id || null,
+      productName: product?.name || null,
+      type: client ? "session" : "other",
+    });
+    setForm(EMPTY_FORM);
+    setFormOpen(false);
+    load();
+  };
+
+  const toggleDay = (d) => setSchedule((s) => ({ ...s, days: { ...s.days, [d]: !s.days[d] } }));
+  const saveSched = async () => { await saveSchedule(schedule); setSchedOpen(false); };
+
+  const isWorkday = schedule?.days?.[new Date(selected + "T00:00:00").getDay()];
+
+  return (
+    <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+      <View style={styles.headRow}>
+        <H1>Календарь</H1>
+        <PrimaryButton title="График" tone="soft" onPress={() => setSchedOpen((v) => !v)} />
+      </View>
+
+      {schedOpen && schedule && (
+        <Card style={styles.form}>
+          <Text style={styles.formTitle}>Рабочий график</Text>
+          <View style={styles.chipsRow}>
+            {DAY_ORDER.map((d, i) => (
+              <Pressable key={d} onPress={() => toggleDay(d)} style={[styles.chip, schedule.days[d] && styles.chipOn]}>
+                <Text style={[styles.chipT, schedule.days[d] && styles.chipTOn]}>{WD[i]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.rowInputs}>
+            <TextInput value={schedule.start} onChangeText={(v) => setSchedule((s) => ({ ...s, start: v }))} placeholder="10:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <Text style={{ color: C.inkSoft }}>—</Text>
+            <TextInput value={schedule.end} onChangeText={(v) => setSchedule((s) => ({ ...s, end: v }))} placeholder="19:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+          </View>
+          <PrimaryButton title="Сохранить график" tone="accent" onPress={saveSched} />
+        </Card>
+      )}
+
+      <Card style={{ padding: 12 }}>
+        <View style={styles.monthRow}>
+          <Pressable onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} style={styles.nav}><Text style={styles.navT}>‹</Text></Pressable>
+          <Text style={[styles.monthT, SERIF]}>{monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)}</Text>
+          <Pressable onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} style={styles.nav}><Text style={styles.navT}>›</Text></Pressable>
+        </View>
+        <View style={styles.week}>
+          {WD.map((w) => <Text key={w} style={styles.wd}>{w}</Text>)}
+        </View>
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.week}>
+            {week.map((d, di) => {
+              if (!d) return <View key={di} style={styles.cell} />;
+              const key = dateKey(d);
+              const sel = key === selected;
+              const isToday = key === todayKey;
+              return (
+                <Pressable key={di} onPress={() => setSelected(key)} style={[styles.cell, sel && styles.cellSel]}>
+                  <Text style={[styles.cellT, isToday && !sel && { color: C.accent, fontWeight: "700" }, sel && styles.cellTSel]}>
+                    {d.getDate()}
+                  </Text>
+                  {eventDates.has(key) && <View style={[styles.dot, sel && { backgroundColor: C.white }]} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </Card>
+
+      <View style={styles.dayHead}>
+        <Text style={styles.dayTitle}>{fmtDay(selected)}</Text>
+        {!formOpen && <PrimaryButton title="＋ Событие" onPress={() => setFormOpen(true)} />}
+      </View>
+      {schedule && (
+        <Text style={styles.workHint}>
+          {isWorkday ? `Рабочий день · ${schedule.start}–${schedule.end}` : "Выходной по графику"}
+        </Text>
+      )}
+
+      {formOpen && (
+        <Card style={styles.form}>
+          <Text style={styles.formTitle}>Новое событие</Text>
+
+          {clients.length > 0 && (
+            <>
+              <Text style={styles.label}>Клиент (или своё событие)</Text>
+              <View style={styles.chipsRow}>
+                {clients.map((c) => (
+                  <Pressable key={c.id} onPress={() => pickClient(c)} style={[styles.chip, form.clientId === c.id && styles.chipOn]}>
+                    <Text style={[styles.chipT, form.clientId === c.id && styles.chipTOn]}>{c.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+
+          {products.length > 0 && form.clientId && (
+            <>
+              <Text style={styles.label}>Продукт</Text>
+              <View style={styles.chipsRow}>
+                {products.map((p) => (
+                  <Pressable key={p.id} onPress={() => pickProduct(p)} style={[styles.chip, form.productId === p.id && styles.chipOn]}>
+                    <Text style={[styles.chipT, form.productId === p.id && styles.chipTOn]}>{p.name} · {p.durationMin} мин</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+
+          {!form.clientId && (
+            <TextInput value={form.title} onChangeText={(v) => setForm((f) => ({ ...f, title: v }))} placeholder="Название (например: Супервизия)" placeholderTextColor={C.inkSoft} style={styles.input} />
+          )}
+
+          <View style={styles.rowInputs}>
+            <TextInput value={form.time} onChangeText={(v) => setForm((f) => ({ ...f, time: v }))} placeholder="Время, 14:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput value={form.durationMin} onChangeText={(v) => setForm((f) => ({ ...f, durationMin: v }))} placeholder="Минут" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={[styles.input, { flex: 1 }]} />
+          </View>
+
+          <View style={styles.rowInputs}>
+            <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => { setFormOpen(false); setForm(EMPTY_FORM); }} /></View>
+            <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={save} /></View>
+          </View>
+          {products.length === 0 && (
+            <Text style={styles.formHint}>Подсказка: заполните продукты в настройках (⚙) — длительность окна будет подставляться сама.</Text>
+          )}
+        </Card>
+      )}
+
+      {dayEvents.length === 0 && !formOpen && (
+        <Card style={{ padding: 16 }}>
+          <Text style={{ fontSize: 13, color: C.inkSoft, lineHeight: 19 }}>
+            На этот день событий нет. Нажмите «＋ Событие», чтобы записать клиента
+            или добавить своё мероприятие.
+          </Text>
+        </Card>
+      )}
+
+      {dayEvents.map((e) => (
+        <Card key={e.id} style={styles.event} onPress={() => navigation.navigate("EventDetail", { id: e.id })}>
+          <View style={styles.time}>
+            <Text style={styles.timeT}>{e.time}</Text>
+            <Text style={styles.dur}>{e.durationMin} мин</Text>
+          </View>
+          <View style={styles.sep} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.evTitle} numberOfLines={1}>{e.title}</Text>
+            {e.productName ? <Text style={styles.evMeta}>{e.productName}</Text> : null}
+          </View>
+          {e.type === "other" ? <Tag>Своё</Tag> : null}
+        </Card>
+      ))}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: { padding: 16, paddingBottom: 40 },
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  monthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  nav: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  navT: { fontSize: 22, color: C.primary },
+  monthT: { fontSize: 16, color: C.ink },
+  week: { flexDirection: "row" },
+  wd: { flex: 1, textAlign: "center", fontSize: 11, color: C.inkSoft, paddingVertical: 4 },
+  cell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 10 },
+  cellSel: { backgroundColor: C.primary },
+  cellT: { fontSize: 13, color: C.ink },
+  cellTSel: { color: C.white, fontWeight: "700" },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent, marginTop: 2 },
+  dayHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16, marginBottom: 4 },
+  dayTitle: { fontSize: 15, fontWeight: "600", color: C.ink },
+  workHint: { fontSize: 11, color: C.inkSoft, marginBottom: 8 },
+  form: { padding: 14, marginBottom: 12 },
+  formTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
+  label: { fontSize: 11, color: C.inkSoft, marginBottom: 6 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  chip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  chipOn: { backgroundColor: C.primary, borderColor: C.primary },
+  chipT: { fontSize: 12, color: C.ink },
+  chipTOn: { color: C.white },
+  input: {
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
+  },
+  rowInputs: { flexDirection: "row", gap: 8, alignItems: "center" },
+  formHint: { fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 15 },
+  event: { padding: 14, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+  time: { width: 52, alignItems: "center" },
+  timeT: { fontSize: 15, fontWeight: "600", color: C.ink },
+  dur: { fontSize: 10, color: C.inkSoft },
+  sep: { width: 1, alignSelf: "stretch", backgroundColor: C.line },
+  evTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
+  evMeta: { fontSize: 11, color: C.inkSoft, marginTop: 2 },
+});

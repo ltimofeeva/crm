@@ -7,6 +7,20 @@ import { getClients, addClient } from "../storage/store";
 
 const EMPTY_FORM = { name: "", age: "", request: "", format: "", phone: "" };
 
+// Маска телефона: +7 (XXX) XXX-XX-XX. Оставляем только цифры и форматируем.
+function formatPhone(value) {
+  let digits = value.replace(/\D/g, "");
+  // Отбрасываем ведущую 7/8 (страна) — она уже в «+7».
+  if (digits.startsWith("7") || digits.startsWith("8")) digits = digits.slice(1);
+  digits = digits.slice(0, 10);
+  if (digits.length === 0) return "";
+  let out = "+7 (" + digits.slice(0, 3);
+  if (digits.length >= 4) out += ") " + digits.slice(3, 6);
+  if (digits.length >= 7) out += "-" + digits.slice(6, 8);
+  if (digits.length >= 9) out += "-" + digits.slice(8, 10);
+  return out;
+}
+
 export default function ClientsScreen({ navigation, route }) {
   const [clients, setClients] = useState([]);
   const [query, setQuery] = useState("");
@@ -53,7 +67,15 @@ export default function ClientsScreen({ navigation, route }) {
           <TextInput value={form.age} onChangeText={set("age")} placeholder="Возраст" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={styles.input} />
           <TextInput value={form.request} onChangeText={set("request")} placeholder="Запрос (например: тревожность)" placeholderTextColor={C.inkSoft} style={styles.input} />
           <TextInput value={form.format} onChangeText={set("format")} placeholder="Формат: Онлайн / Кабинет" placeholderTextColor={C.inkSoft} style={styles.input} />
-          <TextInput value={form.phone} onChangeText={set("phone")} placeholder="Телефон" placeholderTextColor={C.inkSoft} keyboardType="phone-pad" style={styles.input} />
+          <TextInput
+            value={form.phone}
+            onChangeText={(v) => setForm((f) => ({ ...f, phone: formatPhone(v) }))}
+            placeholder="+7 (___) ___-__-__"
+            placeholderTextColor={C.inkSoft}
+            keyboardType="phone-pad"
+            maxLength={18}
+            style={styles.input}
+          />
           <View style={styles.formActions}>
             <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => { setFormOpen(false); setForm(EMPTY_FORM); }} /></View>
             <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={save} /></View>

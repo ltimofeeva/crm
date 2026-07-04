@@ -5,8 +5,7 @@ import {
 } from "react-native";
 import { C } from "../theme";
 import { PrimaryButton } from "../components/ui";
-import { getClients } from "../storage/store";
-import { sendChat, buildContext } from "../api/ai";
+import { sendChat, buildFullContext, UNPACK_SYSTEM } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 
 const QUICK = [
@@ -26,8 +25,13 @@ export default function AIChatScreen({ route, navigation }) {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    (async () => setSystem(buildContext(await getClients())))();
-  }, []);
+    (async () => {
+      let s = await buildFullContext();
+      // Режим «распаковки» из настроек: добавляем роль интервьюера.
+      if (route.params?.unpack) s = `${s}\n\n${UNPACK_SYSTEM}`;
+      setSystem(s);
+    })();
+  }, [route.params?.unpack]);
 
   const send = async (text) => {
     const userText = (text ?? input).trim();
