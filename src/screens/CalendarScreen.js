@@ -10,6 +10,7 @@ import {
   getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
   getBlocks, addBlock, deleteBlock,
 } from "../storage/store";
+import { confirmAsync } from "../utils/confirm";
 
 const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Пн..Вс в терминах getDay()
@@ -38,7 +39,17 @@ function fmtDay(key) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const EMPTY_FORM = { clientId: null, productId: null, title: "", time: "", durationMin: "" };
+const EMPTY_FORM = { clientText: "", clientId: null, productText: "", productId: null, time: "", durationMin: "" };
+
+// Маска времени --:-- — оставляем только цифры и ставим двоеточие.
+function maskTime(v) {
+  const d = (v || "").replace(/\D/g, "").slice(0, 4);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
+}
+
+function validTime(t) {
+  return /^([01]?\d|2[0-3]):[0-5]\d$/.test((t || "").trim());
+}
 
 // "12:30" → минуты от полуночи; некорректное значение → NaN.
 function toMin(t) {
@@ -97,46 +108,100 @@ export default function CalendarScreen({ navigation }) {
   const dayEvents = events.filter((e) => e.date === selected);
   const eventDates = new Set(events.map((e) => e.date));
 
-  const pickClient = (c) => setForm((f) => ({
-    ...f,
-    clientId: f.clientId === c.id ? null : c.id,
-    title: f.clientId === c.id ? "" : `Сессия: ${c.name}`,
-  }));
+  const [clientSug, setClientSug] = useState(false);
+  const [productSug, setProductSug] = useState(false);
 
-  const pickProduct = (p) => setForm((f) => ({
-    ...f,
-    productId: f.productId === p.id ? null : p.id,
-    durationMin: f.productId === p.id ? "" : String(p.durationMin),
-  }));
+  // Подсказки: фильтруем по введённому тексту (пустой ввод — первые 5).
+  const clientMatches = clients
+    .filter((c) => c.name.toLowerCase().includes(form.clientText.trim().toLowerCase()))
+    .slice(0, 5);
+  const productMatches = products
+    .filter((p) => p.name.toLowerCase().includes(form.productText.trim().toLowerCase()))
+    .slice(0, 5);
+
+  const onClientText = (v) => {
+    const exact = clients.find((c) => c.name.toLowerCase() === v.trim().toLowerCase());
+    setForm((f) => ({ ...f, clientText: v, clientId: exact?.id || null }));
+    setClientSug(true);
+  };
+
+  const pickClient = (c) => {
+    setForm((f) => ({ ...f, clientText: c.name, clientId: c.id }));
+    setClientSug(false);
+  };
+
+  const onProductText = (v) => {
+    const exact = products.find((p) => p.name.toLowerCase() === v.trim().toLowerCase());
+    setForm((f) => ({
+      ...f,
+      productText: v,
+      productId: exact?.id || null,
+      durationMin: exact ? String(exact.durationMin) : f.durationMin,
+    }));
+    setProductSug(true);
+  };
+
+  const pickProduct = (p) => {
+    setForm((f) => ({ ...f, productText: p.name, productId: p.id, durationMin: String(p.durationMin) }));
+    setProductSug(false);
+  };
 
   const dayBlocks = blocks.filter((b) => b.date === selected);
 
   const save = async () => {
+    // 1. Обязательные поля.
+    const missing = [];
+    if (!form.clientText.trim()) missing.push("«Клиент / название»");
+    if (!form.time.trim()) missing.push("«Время»");
+    if (missing.length) {
+      setFormError(`Заполните обязательные поля: ${missing.join(" и ")}.`);
+      return;
+    }
+    // 2. Корректность времени.
     const time = form.time.trim();
-    if (!/^\d{1,2}[:.]\d{2}$/.test(time)) { setFormError("Укажите время в формате 14:00"); return; }
+    if (!validTime(time)) { setFormError("Время указывается в формате 14:00."); return; }
     const client = clients.find((c) => c.id === form.clientId);
     const product = products.find((p) => p.id === form.productId);
-    // Проверяем пересечение с закрытым временем.
+    // 3. Пересечение с закрытым временем.
     const startM = toMin(time);
     const durM = parseInt(form.durationMin, 10) || product?.durationMin || 50;
     const clash = dayBlocks.find((b) => startM < toMin(b.end) && startM + durM > toMin(b.start));
     if (clash) { setFormError(`Это время закрыто (${clash.start}–${clash.end}). Выберите другое.`); return; }
     setFormError("");
-    const title = form.title.trim() || (client ? `Сессия: ${client.name}` : "Событие");
+    const productName = product?.name || form.productText.trim() || null;
     await addEvent({
       date: selected,
-      time: time.replace(".", ":").padStart(5, "0"),
-      durationMin: parseInt(form.durationMin, 10) || product?.durationMin || 50,
-      title,
+      time: time.padStart(5, "0"),
+      durationMin: durM,
+      title: client ? `Сессия: ${client.name}` : form.clientText.trim(),
       clientId: client?.id || null,
       clientName: client?.name || null,
       productId: product?.id || null,
-      productName: product?.name || null,
+      productName,
       type: client ? "session" : "other",
     });
+    const newClientName = !client ? form.clientText.trim() : "";
+    const newProductName = !product && form.productText.trim() ? form.productText.trim() : "";
     setForm(EMPTY_FORM);
     setFormOpen(false);
+    setClientSug(false);
+    setProductSug(false);
     load();
+
+    // Имя не из базы — предлагаем сразу завести карточку клиента/продукта.
+    if (newClientName && await confirmAsync(
+      "Вы хотите добавить нового клиента в базу?",
+      `«${newClientName}» появится во вкладке «Клиенты», и ассистент сможет вести его историю.`,
+    )) {
+      navigation.navigate("Clients", { screen: "ClientsList", params: { newName: newClientName } });
+      return;
+    }
+    if (newProductName && await confirmAsync(
+      "Добавить новый продукт в настройки?",
+      `«${newProductName}» появится в списке продуктов с длительностью и ценой.`,
+    )) {
+      navigation.navigate("Settings", { newProductName });
+    }
   };
 
   const toggleDay = (d) => setSchedule((s) => ({ ...s, days: { ...s.days, [d]: !s.days[d] } }));
@@ -278,39 +343,70 @@ export default function CalendarScreen({ navigation }) {
         <Card style={styles.form}>
           <Text style={styles.formTitle}>Новое событие</Text>
 
-          {clients.length > 0 && (
-            <>
-              <Text style={styles.label}>Клиент (или своё событие)</Text>
-              <View style={styles.chipsRow}>
-                {clients.map((c) => (
-                  <Pressable key={c.id} onPress={() => pickClient(c)} style={[styles.chip, form.clientId === c.id && styles.chipOn]}>
-                    <Text style={[styles.chipT, form.clientId === c.id && styles.chipTOn]}>{c.name}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
+          <Text style={styles.label}>Клиент или название события *</Text>
+          <TextInput
+            value={form.clientText}
+            onChangeText={onClientText}
+            onFocus={() => setClientSug(true)}
+            placeholder="Начните вводить имя…"
+            placeholderTextColor={C.inkSoft}
+            style={styles.input}
+          />
+          {clientSug && clientMatches.length > 0 && (
+            <View style={styles.sugBox}>
+              {clientMatches.map((c) => (
+                <Pressable key={c.id} onPress={() => pickClient(c)} style={styles.sugRow}>
+                  <Text style={styles.sugT}>{c.name}</Text>
+                  <Text style={styles.sugMeta}>{c.request || "клиент"}</Text>
+                </Pressable>
+              ))}
+            </View>
           )}
 
-          {products.length > 0 && form.clientId && (
-            <>
-              <Text style={styles.label}>Продукт</Text>
-              <View style={styles.chipsRow}>
-                {products.map((p) => (
-                  <Pressable key={p.id} onPress={() => pickProduct(p)} style={[styles.chip, form.productId === p.id && styles.chipOn]}>
-                    <Text style={[styles.chipT, form.productId === p.id && styles.chipTOn]}>{p.name} · {p.durationMin} мин</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
-
-          {!form.clientId && (
-            <TextInput value={form.title} onChangeText={(v) => setForm((f) => ({ ...f, title: v }))} placeholder="Название (например: Супервизия)" placeholderTextColor={C.inkSoft} style={styles.input} />
+          <Text style={styles.label}>Продукт (можно свой)</Text>
+          <TextInput
+            value={form.productText}
+            onChangeText={onProductText}
+            onFocus={() => setProductSug(true)}
+            placeholder="Начните вводить название…"
+            placeholderTextColor={C.inkSoft}
+            style={styles.input}
+          />
+          {productSug && productMatches.length > 0 && (
+            <View style={styles.sugBox}>
+              {productMatches.map((p) => (
+                <Pressable key={p.id} onPress={() => pickProduct(p)} style={styles.sugRow}>
+                  <Text style={styles.sugT}>{p.name}</Text>
+                  <Text style={styles.sugMeta}>{p.durationMin} мин{p.price ? ` · ${p.price} ₽` : ""}</Text>
+                </Pressable>
+              ))}
+            </View>
           )}
 
           <View style={styles.rowInputs}>
-            <TextInput value={form.time} onChangeText={(v) => setForm((f) => ({ ...f, time: v }))} placeholder="Время, 14:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
-            <TextInput value={form.durationMin} onChangeText={(v) => setForm((f) => ({ ...f, durationMin: v }))} placeholder="Минут" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={[styles.input, { flex: 1 }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Время *</Text>
+              <TextInput
+                value={form.time}
+                onChangeText={(v) => setForm((f) => ({ ...f, time: maskTime(v) }))}
+                placeholder="--:--"
+                placeholderTextColor={C.inkSoft}
+                keyboardType="numeric"
+                maxLength={5}
+                style={styles.input}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Длительность, мин</Text>
+              <TextInput
+                value={form.durationMin}
+                onChangeText={(v) => setForm((f) => ({ ...f, durationMin: v }))}
+                placeholder="50"
+                placeholderTextColor={C.inkSoft}
+                keyboardType="numeric"
+                style={styles.input}
+              />
+            </View>
           </View>
 
           {formError ? <Text style={styles.formError}>{formError}</Text> : null}
@@ -376,6 +472,10 @@ const styles = StyleSheet.create({
   },
   blockText: { fontSize: 13, color: C.inkSoft, fontWeight: "600" },
   formError: { fontSize: 12, color: C.accent, marginBottom: 8 },
+  sugBox: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12, marginTop: -4, marginBottom: 8, overflow: "hidden" },
+  sugRow: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  sugT: { fontSize: 13, color: C.ink, fontWeight: "600" },
+  sugMeta: { fontSize: 11, color: C.inkSoft },
   form: { padding: 14, marginBottom: 12 },
   formTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
   label: { fontSize: 11, color: C.inkSoft, marginBottom: 6 },

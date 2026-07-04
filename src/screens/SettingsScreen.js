@@ -2,7 +2,8 @@
 // агент-распаковка, подписка и очистка данных.
 
 import React, { useState, useCallback } from "react";
-import { ScrollView, View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
+import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { confirmAsync } from "../utils/confirm";
 import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
 import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
@@ -14,7 +15,7 @@ import { useSubscription } from "../context/SubscriptionContext";
 
 const EMPTY_PRODUCT = { name: "", durationMin: "", price: "", about: "" };
 
-export default function SettingsScreen({ navigation }) {
+export default function SettingsScreen({ navigation, route }) {
   const { billingEnabled, isPro } = useSubscription();
   const [products, setProducts] = useState([]);
   const [profile, setProfile] = useState({ activity: "", approach: "", strengths: "" });
@@ -25,7 +26,14 @@ export default function SettingsScreen({ navigation }) {
   const load = useCallback(async () => {
     setProducts(await getProducts());
     setProfile(await getProfile());
-  }, []);
+    // Пришли из календаря с новым продуктом — открываем форму с именем.
+    const newProductName = route.params?.newProductName;
+    if (newProductName) {
+      navigation.setParams({ newProductName: undefined });
+      setProd({ ...EMPTY_PRODUCT, name: newProductName });
+      setProdOpen(true);
+    }
+  }, [route.params?.newProductName]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const setP = (k) => (v) => setProd((p) => ({ ...p, [k]: v }));
@@ -39,11 +47,11 @@ export default function SettingsScreen({ navigation }) {
     load();
   };
 
-  const removeProduct = (p) => {
-    Alert.alert("Удалить продукт?", p.name, [
-      { text: "Отмена", style: "cancel" },
-      { text: "Удалить", style: "destructive", onPress: async () => { await deleteProduct(p.id); load(); } },
-    ]);
+  const removeProduct = async (p) => {
+    if (await confirmAsync("Удалить продукт?", p.name, "Удалить", "Отмена")) {
+      await deleteProduct(p.id);
+      load();
+    }
   };
 
   const persistProfile = async () => {
@@ -53,11 +61,15 @@ export default function SettingsScreen({ navigation }) {
 
   const unpack = () => navigation.navigate("AIChat", { preset: UNPACK_PROMPT, unpack: true });
 
-  const wipe = () => {
-    Alert.alert("Стереть все данные?", "Клиенты, заметки, события, продукты и профиль будут удалены безвозвратно.", [
-      { text: "Отмена", style: "cancel" },
-      { text: "Стереть", style: "destructive", onPress: async () => { await clearAllData(); load(); } },
-    ]);
+  const wipe = async () => {
+    if (await confirmAsync(
+      "Стереть все данные?",
+      "Клиенты, заметки, события, продукты и профиль будут удалены безвозвратно.",
+      "Стереть", "Отмена",
+    )) {
+      await clearAllData();
+      load();
+    }
   };
 
   return (

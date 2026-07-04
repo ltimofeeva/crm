@@ -37,7 +37,14 @@ export default function ClientsScreen({ navigation, route }) {
       navigation.setParams({ openName: undefined });
       if (c) navigation.navigate("ClientDetail", { id: c.id });
     }
-  }, [route.params?.openName]);
+    // Пришли из календаря с новым именем — сразу открываем форму клиента.
+    const newName = route.params?.newName;
+    if (newName) {
+      navigation.setParams({ newName: undefined });
+      setForm({ ...EMPTY_FORM, name: newName });
+      setFormOpen(true);
+    }
+  }, [route.params?.openName, route.params?.newName]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

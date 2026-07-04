@@ -3,7 +3,8 @@
 // и в «Календаре».
 
 import React, { useState, useEffect } from "react";
-import { ScrollView, View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
+import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { confirmAsync } from "../utils/confirm";
 import { C, SERIF } from "../theme";
 import { Card, Tag, PrimaryButton } from "../components/ui";
 import { getEvents, updateEvent, deleteEvent } from "../storage/store";
@@ -43,14 +44,11 @@ export default function EventDetailScreen({ route, navigation }) {
     setTimeout(() => setSaved(false), 1500);
   };
 
-  const remove = () => {
-    Alert.alert("Удалить событие?", event.title, [
-      { text: "Отмена", style: "cancel" },
-      {
-        text: "Удалить", style: "destructive",
-        onPress: async () => { await deleteEvent(id); navigation.goBack(); },
-      },
-    ]);
+  const remove = async () => {
+    if (await confirmAsync("Удалить событие?", event.title, "Удалить", "Отмена")) {
+      await deleteEvent(id);
+      navigation.goBack();
+    }
   };
 
   return (
