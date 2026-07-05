@@ -2,11 +2,12 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { C, SERIF } from "../theme";
 
-// Ссылка «Вернуться в чат» — открывает ассистента с сохранённой историей.
-export function ChatReturnLink({ onPress }) {
+// Значок «мозг» в правом верхнем углу экрана — открывает ассистента
+// с сохранёнными диалогами.
+export function BrainButton({ onPress }) {
   return (
-    <Pressable onPress={onPress} style={styles.chatLink}>
-      <Text style={styles.chatLinkT}>💬 Вернуться в чат →</Text>
+    <Pressable onPress={onPress} style={styles.brain}>
+      <Text style={{ fontSize: 18 }}>🧠</Text>
     </Pressable>
   );
 }
@@ -60,8 +61,10 @@ export function PrimaryButton({ title, onPress, icon, tone = "primary" }) {
 }
 
 const styles = StyleSheet.create({
-  chatLink: { alignSelf: "flex-start", marginBottom: 10 },
-  chatLinkT: { fontSize: 12, color: C.primary, fontWeight: "600" },
+  brain: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: C.white,
+    borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center",
+  },
   card: {
     backgroundColor: C.white,
     borderRadius: 16,

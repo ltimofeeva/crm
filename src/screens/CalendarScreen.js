@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
   getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
   getBlocks, addBlock, deleteBlock,
@@ -51,6 +51,71 @@ function validTime(t) {
   return /^([01]?\d|2[0-3]):[0-5]\d$/.test((t || "").trim());
 }
 
+// Дозаполнение времени при уходе с поля: "14" → "14:00", "9" → "09:00",
+// "1430" → "14:30". Часы/минуты обрезаются до допустимых значений.
+function normalizeTime(v) {
+  const d = (v || "").replace(/\D/g, "");
+  if (!d) return "";
+  let hh = parseInt(d.slice(0, 2), 10);
+  let mm = d.length > 2 ? parseInt(d.slice(2, 4).padEnd(2, "0"), 10) : 0;
+  if (isNaN(hh)) return "";
+  hh = Math.min(hh, 23);
+  mm = Math.min(isNaN(mm) ? 0 : mm, 59);
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+// Компактный календарик для выбора даты в полях графика.
+function MiniCalendar({ value, onPick }) {
+  const init = value ? new Date(value + "T00:00:00") : new Date();
+  const [cur, setCur] = useState(new Date(init.getFullYear(), init.getMonth(), 1));
+  const weeks = monthMatrix(cur.getFullYear(), cur.getMonth());
+  const title = cur.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  return (
+    <View style={miniStyles.box}>
+      <View style={miniStyles.head}>
+        <Pressable onPress={() => setCur(new Date(cur.getFullYear(), cur.getMonth() - 1, 1))} style={miniStyles.nav}>
+          <Text style={miniStyles.navT}>‹</Text>
+        </Pressable>
+        <Text style={miniStyles.title}>{title.charAt(0).toUpperCase() + title.slice(1)}</Text>
+        <Pressable onPress={() => setCur(new Date(cur.getFullYear(), cur.getMonth() + 1, 1))} style={miniStyles.nav}>
+          <Text style={miniStyles.navT}>›</Text>
+        </Pressable>
+      </View>
+      <View style={miniStyles.week}>
+        {WD.map((w) => <Text key={w} style={miniStyles.wd}>{w}</Text>)}
+      </View>
+      {weeks.map((week, wi) => (
+        <View key={wi} style={miniStyles.week}>
+          {week.map((d, di) => {
+            if (!d) return <View key={di} style={miniStyles.cell} />;
+            const key = dateKey(d);
+            const sel = key === value;
+            return (
+              <Pressable key={di} onPress={() => onPick(key)} style={[miniStyles.cell, sel && miniStyles.cellSel]}>
+                <Text style={[miniStyles.cellT, sel && miniStyles.cellTSel]}>{d.getDate()}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const miniStyles = StyleSheet.create({
+  box: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 8, marginBottom: 8 },
+  head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  nav: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  navT: { fontSize: 18, color: C.primary },
+  title: { fontSize: 13, fontWeight: "600", color: C.ink },
+  week: { flexDirection: "row" },
+  wd: { flex: 1, textAlign: "center", fontSize: 10, color: C.inkSoft, paddingVertical: 3 },
+  cell: { flex: 1, aspectRatio: 1.2, alignItems: "center", justifyContent: "center", borderRadius: 8 },
+  cellSel: { backgroundColor: C.primary },
+  cellT: { fontSize: 12, color: C.ink },
+  cellTSel: { color: C.white, fontWeight: "700" },
+});
+
 // "12:30" → минуты от полуночи; некорректное значение → NaN.
 function toMin(t) {
   const m = /^(\d{1,2})[:.](\d{2})$/.exec((t || "").trim());
@@ -87,8 +152,9 @@ export default function CalendarScreen({ navigation }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [blockForm, setBlockForm] = useState({ start: "", end: "" });
-  const [schedFrom, setSchedFrom] = useState("");
+  const [schedFrom, setSchedFrom] = useState(""); // ISO ГГГГ-ММ-ДД или ""
   const [schedTo, setSchedTo] = useState("");
+  const [pickerFor, setPickerFor] = useState(null); // null | "from" | "to"
 
   const load = useCallback(async () => {
     setEvents(await getEvents());
@@ -96,8 +162,8 @@ export default function CalendarScreen({ navigation }) {
     setProducts(await getProducts());
     const s = await getSchedule();
     setSchedule(s);
-    setSchedFrom(showDate(s.from));
-    setSchedTo(showDate(s.to));
+    setSchedFrom(s.from || "");
+    setSchedTo(s.to || "");
     setBlocks(await getBlocks());
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -207,18 +273,24 @@ export default function CalendarScreen({ navigation }) {
   const toggleDay = (d) => setSchedule((s) => ({ ...s, days: { ...s.days, [d]: !s.days[d] } }));
 
   const saveSched = async () => {
-    const next = { ...schedule, from: parseDateInput(schedFrom), to: parseDateInput(schedTo) };
+    const next = {
+      ...schedule,
+      start: normalizeTime(schedule.start) || "10:00",
+      end: normalizeTime(schedule.end) || "20:00",
+      from: schedFrom,
+      to: schedTo,
+    };
     setSchedule(next);
     await saveSchedule(next);
     setSchedOpen(false);
+    setPickerFor(null);
   };
 
   const saveBlock = async () => {
-    const s = toMin(blockForm.start);
-    const e = toMin(blockForm.end);
-    if (isNaN(s) || isNaN(e) || e <= s) return;
-    const norm = (t) => t.trim().replace(".", ":").padStart(5, "0");
-    await addBlock({ date: selected, start: norm(blockForm.start), end: norm(blockForm.end) });
+    const start = normalizeTime(blockForm.start);
+    const end = normalizeTime(blockForm.end);
+    if (!start || !end || toMin(end) <= toMin(start)) return;
+    await addBlock({ date: selected, start, end });
     setBlockForm({ start: "", end: "" });
     setBlockOpen(false);
     load();
@@ -235,8 +307,9 @@ export default function CalendarScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.headRow}>
-        <H1>Календарь</H1>
+        <View style={{ flex: 1 }}><H1>Календарь</H1></View>
         <PrimaryButton title="График" tone="soft" onPress={() => setSchedOpen((v) => !v)} />
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
       </View>
 
       {schedOpen && schedule && (
@@ -251,16 +324,56 @@ export default function CalendarScreen({ navigation }) {
           </View>
           <Text style={styles.label}>Часы работы</Text>
           <View style={styles.rowInputs}>
-            <TextInput value={schedule.start} onChangeText={(v) => setSchedule((s) => ({ ...s, start: v }))} placeholder="10:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput
+              value={schedule.start}
+              onChangeText={(v) => setSchedule((s) => ({ ...s, start: maskTime(v) }))}
+              onBlur={() => setSchedule((s) => ({ ...s, start: normalizeTime(s.start) }))}
+              placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+              style={[styles.input, { flex: 1 }]}
+            />
             <Text style={{ color: C.inkSoft }}>—</Text>
-            <TextInput value={schedule.end} onChangeText={(v) => setSchedule((s) => ({ ...s, end: v }))} placeholder="20:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput
+              value={schedule.end}
+              onChangeText={(v) => setSchedule((s) => ({ ...s, end: maskTime(v) }))}
+              onBlur={() => setSchedule((s) => ({ ...s, end: normalizeTime(s.end) }))}
+              placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+              style={[styles.input, { flex: 1 }]}
+            />
           </View>
-          <Text style={styles.label}>Период действия (пусто = бессрочно)</Text>
+          <Text style={styles.label}>Период действия (пусто = бессрочно) — нажмите на поле, чтобы выбрать дату</Text>
           <View style={styles.rowInputs}>
-            <TextInput value={schedFrom} onChangeText={setSchedFrom} placeholder="с 01.07.2026" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <Pressable
+              onPress={() => setPickerFor(pickerFor === "from" ? null : "from")}
+              style={[styles.input, { flex: 1, justifyContent: "center" }, pickerFor === "from" && styles.inputActive]}
+            >
+              <Text style={{ fontSize: 14, color: schedFrom ? C.ink : C.inkSoft }}>
+                {schedFrom ? `с ${showDate(schedFrom)}` : "с …"}
+              </Text>
+            </Pressable>
             <Text style={{ color: C.inkSoft }}>—</Text>
-            <TextInput value={schedTo} onChangeText={setSchedTo} placeholder="по 31.07.2026" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <Pressable
+              onPress={() => setPickerFor(pickerFor === "to" ? null : "to")}
+              style={[styles.input, { flex: 1, justifyContent: "center" }, pickerFor === "to" && styles.inputActive]}
+            >
+              <Text style={{ fontSize: 14, color: schedTo ? C.ink : C.inkSoft }}>
+                {schedTo ? `по ${showDate(schedTo)}` : "по …"}
+              </Text>
+            </Pressable>
           </View>
+          {pickerFor && (
+            <MiniCalendar
+              value={pickerFor === "from" ? schedFrom : schedTo}
+              onPick={(iso) => {
+                if (pickerFor === "from") setSchedFrom(iso); else setSchedTo(iso);
+                setPickerFor(null);
+              }}
+            />
+          )}
+          {(schedFrom || schedTo) ? (
+            <Pressable onPress={() => { setSchedFrom(""); setSchedTo(""); }}>
+              <Text style={styles.clearPeriod}>Сбросить период</Text>
+            </Pressable>
+          ) : null}
           <PrimaryButton title="Сохранить график" tone="accent" onPress={saveSched} />
           <Text style={styles.formHint}>
             Закрыть отдельные часы внутри дня (например, обед) можно кнопкой
@@ -319,9 +432,21 @@ export default function CalendarScreen({ navigation }) {
         <Card style={styles.form}>
           <Text style={styles.formTitle}>Закрыть время (серые часы — на них не записывать)</Text>
           <View style={styles.rowInputs}>
-            <TextInput value={blockForm.start} onChangeText={(v) => setBlockForm((b) => ({ ...b, start: v }))} placeholder="с 12:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput
+              value={blockForm.start}
+              onChangeText={(v) => setBlockForm((b) => ({ ...b, start: maskTime(v) }))}
+              onBlur={() => setBlockForm((b) => ({ ...b, start: normalizeTime(b.start) }))}
+              placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+              style={[styles.input, { flex: 1 }]}
+            />
             <Text style={{ color: C.inkSoft }}>—</Text>
-            <TextInput value={blockForm.end} onChangeText={(v) => setBlockForm((b) => ({ ...b, end: v }))} placeholder="до 14:00" placeholderTextColor={C.inkSoft} style={[styles.input, { flex: 1 }]} />
+            <TextInput
+              value={blockForm.end}
+              onChangeText={(v) => setBlockForm((b) => ({ ...b, end: maskTime(v) }))}
+              onBlur={() => setBlockForm((b) => ({ ...b, end: normalizeTime(b.end) }))}
+              placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+              style={[styles.input, { flex: 1 }]}
+            />
           </View>
           <View style={styles.rowInputs}>
             <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setBlockOpen(false)} /></View>
@@ -389,6 +514,7 @@ export default function CalendarScreen({ navigation }) {
               <TextInput
                 value={form.time}
                 onChangeText={(v) => setForm((f) => ({ ...f, time: maskTime(v) }))}
+                onBlur={() => setForm((f) => ({ ...f, time: normalizeTime(f.time) }))}
                 placeholder="--:--"
                 placeholderTextColor={C.inkSoft}
                 keyboardType="numeric"
@@ -449,7 +575,9 @@ export default function CalendarScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  inputActive: { borderColor: C.primary },
+  clearPeriod: { fontSize: 12, color: C.accent, fontWeight: "600", marginBottom: 8 },
   monthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   nav: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   navT: { fontSize: 22, color: C.primary },

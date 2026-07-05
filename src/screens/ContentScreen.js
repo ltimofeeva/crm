@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
-import { Card, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
+import { Card, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
   getContent, addContentItem, moveContentItem, deleteContentItem,
 } from "../storage/store";
@@ -36,7 +36,9 @@ export default function ContentScreen({ navigation }) {
     setGenState("loading");
     try {
       const system = await buildFullContext();
-      const ideas = await fetchContentIdeas(system);
+      // Передаём уже существующие темы, чтобы ИИ не повторялся.
+      const existing = [...content.ideas, ...content.drafts, ...content.planned].map((i) => i.title);
+      const ideas = await fetchContentIdeas(system, existing);
       for (const idea of ideas.reverse()) {
         await addContentItem("ideas", {
           title: idea.title,
@@ -72,14 +74,13 @@ export default function ContentScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.headRow}>
-        <H1>Контент</H1>
+        <View style={{ flex: 1 }}><H1>Контент</H1></View>
         <PrimaryButton
           title={genState === "loading" ? "Думаю…" : "Идеи ИИ"}
           onPress={genState === "loading" ? undefined : genIdeas}
         />
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
       </View>
-
-      <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
 
       <View style={styles.segbar}>
         {SEGS.map((s) => (
@@ -151,7 +152,7 @@ export default function ContentScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   segbar: { flexDirection: "row", backgroundColor: "#E9EDE9", borderRadius: 12, padding: 4, gap: 4, marginBottom: 12, marginTop: 8 },
   seg: { flex: 1, textAlign: "center", paddingVertical: 8, borderRadius: 8, fontSize: 12, color: C.inkSoft, overflow: "hidden" },
   segActive: { backgroundColor: C.white, color: C.ink, fontWeight: "600" },

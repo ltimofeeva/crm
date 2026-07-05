@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
   getClients, getEvents, getProducts, getSchedule, getReminders, saveReminders,
 } from "../storage/store";
@@ -113,10 +113,9 @@ export default function AnalyticsScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.headRow}>
-        <H1>Аналитика и финансы</H1>
+        <View style={{ flex: 1 }}><H1>Аналитика и финансы</H1></View>
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
       </View>
-
-      <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
 
       <View style={styles.segbar}>
         {SEGS.map((s) => (
@@ -203,7 +202,12 @@ export default function AnalyticsScreen({ navigation }) {
           {remState !== "loading" && reminders.map((r, i) => (
             <Card key={i} style={styles.saleCard}>
               <View style={styles.saleTop}>
-                <Text style={styles.saleClient}>{r.client}</Text>
+                <Text
+                  style={[styles.saleClient, styles.saleClientLink]}
+                  onPress={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
+                >
+                  {r.client} →
+                </Text>
                 <Tag tone={SEGMENT_TONE[r.segment] || "green"}>{r.segment}</Tag>
               </View>
               <Text style={styles.saleReason}>{r.reason}</Text>
@@ -247,6 +251,7 @@ const styles = StyleSheet.create({
   saleCard: { padding: 14, marginTop: 8 },
   saleTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   saleClient: { fontSize: 14, fontWeight: "600", color: C.ink },
+  saleClientLink: { color: C.primary, textDecorationLine: "underline" },
   saleReason: { fontSize: 13, color: C.ink, lineHeight: 18 },
   saleAction: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 17 },
 });

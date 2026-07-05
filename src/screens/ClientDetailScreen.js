@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, PrimaryButton, ChatReturnLink } from "../components/ui";
+import * as Clipboard from "expo-clipboard";
+import { Card, Tag, PrimaryButton } from "../components/ui";
 import { getClients, addSessionNote } from "../storage/store";
 import { analyzeClient, buildFullContext } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -20,6 +21,14 @@ export default function ClientDetailScreen({ route, navigation }) {
   const [note, setNote] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [aState, setAState] = useState("idle"); // idle | loading | done | error
+  const [copied, setCopied] = useState(false);
+
+  const copyPhone = async () => {
+    if (!client?.phone) return;
+    await Clipboard.setStringAsync(client.phone);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const reload = async () => {
     const all = await getClients();
@@ -67,7 +76,15 @@ export default function ClientDetailScreen({ route, navigation }) {
           <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
         </View>
         <View style={styles.field}><Text style={styles.fieldL}>Запрос</Text><Text style={styles.fieldV}>{client.request || "—"}</Text></View>
-        <View style={styles.field}><Text style={styles.fieldL}>Формат · контакт</Text><Text style={styles.fieldV}>{[client.format, client.phone].filter(Boolean).join(" · ") || "—"}</Text></View>
+        <View style={styles.field}>
+          <Text style={styles.fieldL}>Формат · контакт{client.contactVia ? ` · связаться в: ${client.contactVia}` : ""}</Text>
+          <Text style={styles.fieldV}>{[client.format, client.phone].filter(Boolean).join(" · ") || "—"}</Text>
+          {client.phone ? (
+            <Text style={styles.copyLink} onPress={copyPhone}>
+              {copied ? "Скопировано ✓" : "⧉ Скопировать номер"}
+            </Text>
+          ) : null}
+        </View>
         <Text style={styles.next}>Следующая: {client.nextSession}</Text>
       </Card>
 
@@ -78,9 +95,6 @@ export default function ClientDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      <View style={{ marginTop: 10 }}>
-        <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
-      </View>
 
       {noteOpen && (
         <Card style={{ padding: 14 }}>
@@ -181,6 +195,7 @@ const styles = StyleSheet.create({
   field: { backgroundColor: C.bg, borderRadius: 12, padding: 12, marginTop: 8 },
   fieldL: { fontSize: 11, color: C.inkSoft, marginBottom: 2 },
   fieldV: { fontSize: 13, color: C.ink },
+  copyLink: { fontSize: 12, color: C.primary, fontWeight: "600", marginTop: 6 },
   next: { fontSize: 13, color: C.ink, marginTop: 10 },
   actions: { flexDirection: "row", gap: 8, marginTop: 12 },
   textarea: { minHeight: 90, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 12, fontSize: 14, color: C.ink, backgroundColor: C.bg, textAlignVertical: "top" },

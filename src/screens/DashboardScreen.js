@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import { getClients, getEvents, getReminders, saveReminders } from "../storage/store";
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -59,11 +59,14 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <H1 sub={todayEvents.length ? `Записей на сегодня: ${todayEvents.length}` : "Записей на сегодня нет"}>
-        {todayTitle()}
-      </H1>
-
-      <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
+      <View style={styles.topRow}>
+        <View style={{ flex: 1 }}>
+          <H1 sub={todayEvents.length ? `Записей на сегодня: ${todayEvents.length}` : "Записей на сегодня нет"}>
+            {todayTitle()}
+          </H1>
+        </View>
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
+      </View>
 
       {clients.length === 0 && (
         <Card style={styles.welcome} onPress={() => navigation.navigate("Clients")}>
@@ -129,7 +132,12 @@ export default function DashboardScreen({ navigation }) {
           {remState !== "loading" && reminders.map((r, i) => (
             <Card key={i} style={styles.reminder}>
               <View style={styles.remTop}>
-                <Text style={styles.remClient}>{r.client}</Text>
+                <Text
+                  style={[styles.remClient, styles.remClientLink]}
+                  onPress={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
+                >
+                  {r.client} →
+                </Text>
                 <Tag tone={SEGMENT_TONE[r.segment] || "green"}>{r.segment}</Tag>
               </View>
               <Text style={styles.remReason}>{r.reason}</Text>
@@ -174,6 +182,8 @@ const styles = StyleSheet.create({
   reminder: { padding: 14, marginBottom: 8 },
   remTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   remClient: { fontSize: 14, fontWeight: "600", color: C.ink },
+  remClientLink: { color: C.primary, textDecorationLine: "underline" },
+  topRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   remReason: { fontSize: 13, color: C.ink, lineHeight: 18 },
   remAction: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 17 },
   err: { fontSize: 12, color: C.accent, lineHeight: 17 },

@@ -5,7 +5,7 @@ import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { C } from "./src/theme";
-import { SubscriptionProvider } from "./src/context/SubscriptionContext";
+import { SubscriptionProvider, useSubscription } from "./src/context/SubscriptionContext";
 
 import DashboardScreen from "./src/screens/DashboardScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
@@ -59,6 +59,16 @@ function Tabs() {
   );
 }
 
+// Корень приложения: после окончания пробного периода без подписки
+// «Помощник» показываем экран оформления вместо вкладок.
+function Root({ navigation, route }) {
+  const { isBasic, loading } = useSubscription();
+  if (!loading && !isBasic) {
+    return <PaywallScreen navigation={navigation} route={route} />;
+  }
+  return <Tabs />;
+}
+
 const navTheme = {
   ...DefaultTheme,
   colors: { ...DefaultTheme.colors, background: C.bg, card: C.bg, text: C.ink, primary: C.primary, border: C.line },
@@ -70,7 +80,7 @@ export default function App() {
       <NavigationContainer theme={navTheme}>
         <StatusBar style="dark" />
         <Stack.Navigator>
-          <Stack.Screen name="Root" component={Tabs} options={{ headerShown: false }} />
+          <Stack.Screen name="Root" component={Root} options={{ headerShown: false }} />
           <Stack.Screen
             name="AIChat"
             component={AIChatScreen}

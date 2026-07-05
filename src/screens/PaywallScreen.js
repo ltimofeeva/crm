@@ -12,15 +12,30 @@ import {
 } from "../api/purchases";
 import { useSubscription } from "../context/SubscriptionContext";
 
-const FEATURES = [
-  "ИИ-ассистент с контекстом всей практики",
-  "Подготовка к сессиям и анализ клиентов по заметкам",
-  "Бизнес-разбор: доход, загрузка, воронка, план роста",
-  "Идеи и черновики постов для соцсетей",
+const TIERS = [
+  {
+    name: "Помощник",
+    features: [
+      "Клиенты, заметки и история сессий",
+      "Календарь, график работы и запись",
+      "Контент-план и планирование",
+      "Аналитика: финансы и загруженность",
+    ],
+  },
+  {
+    name: "Помощник Про",
+    features: [
+      "Всё из «Помощника», плюс:",
+      "ИИ-ассистент с контекстом практики",
+      "Анализ клиентов и подготовка к сессиям",
+      "Напоминания: горячие/тёплые/холодные",
+      "Идеи контента и тексты сообщений",
+    ],
+  },
 ];
 
 export default function PaywallScreen({ navigation }) {
-  const { billingEnabled, isPro, refresh } = useSubscription();
+  const { billingEnabled, isPro, tier, trialDaysLeft, refresh } = useSubscription();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
@@ -73,16 +88,35 @@ export default function PaywallScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <Text style={[styles.title, SERIF]}>Практика Про</Text>
+      <Text style={[styles.title, SERIF]}>Подписка</Text>
       <Text style={styles.sub}>
-        ИИ-ассистент, который знает вашу практику: клиенты, расписание, финансы.
+        Помощник ведёт практику, Помощник Про добавляет ИИ: анализ клиентов,
+        напоминания, контент и тексты сообщений в вашем стиле.
       </Text>
 
-      <Card style={styles.features}>
-        {FEATURES.map((f) => (
-          <Text key={f} style={styles.feature}>✓  {f}</Text>
-        ))}
-      </Card>
+      {tier === "trial" && (
+        <Card style={styles.notice}>
+          <Text style={styles.noticeText}>
+            🎁 Бесплатный период: {trialDaysLeft === 1 ? "остался 1 день" : `осталось ${trialDaysLeft} дн.`} — всё открыто.
+          </Text>
+        </Card>
+      )}
+      {tier === "none" && (
+        <Card style={[styles.notice, { backgroundColor: C.accentSoft, borderColor: C.accentSoft }]}>
+          <Text style={[styles.noticeText, { color: C.accent }]}>
+            Бесплатный период завершён. Оформите подписку, чтобы продолжить работу.
+          </Text>
+        </Card>
+      )}
+
+      {TIERS.map((t) => (
+        <Card key={t.name} style={styles.features}>
+          <Text style={styles.tierName}>{t.name}</Text>
+          {t.features.map((f) => (
+            <Text key={f} style={styles.feature}>✓  {f}</Text>
+          ))}
+        </Card>
+      ))}
 
       {isPro && billingEnabled && (
         <Card style={styles.notice}>
@@ -133,7 +167,8 @@ const styles = StyleSheet.create({
   wrap: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 26, color: C.ink, textAlign: "center", marginTop: 8 },
   sub: { fontSize: 14, color: C.inkSoft, textAlign: "center", marginTop: 8, lineHeight: 20 },
-  features: { padding: 16, marginTop: 20 },
+  features: { padding: 16, marginTop: 12 },
+  tierName: { fontSize: 15, fontWeight: "700", color: C.primary, marginBottom: 6 },
   feature: { fontSize: 14, color: C.ink, lineHeight: 26 },
   pkg: { padding: 16, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 12 },
   pkgTitle: { fontSize: 15, fontWeight: "600", color: C.ink },

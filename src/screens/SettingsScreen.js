@@ -6,7 +6,7 @@ import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-
 import { confirmAsync } from "../utils/confirm";
 import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
-import { Card, Tag, H1, PrimaryButton, ChatReturnLink } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
   getProducts, addProduct, deleteProduct, getProfile, saveProfile, clearAllData,
 } from "../storage/store";
@@ -74,7 +74,12 @@ export default function SettingsScreen({ navigation, route }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-      <H1 sub="Продукты и профиль учитываются во всех ответах ассистента">Настройки</H1>
+      <View style={styles.topRow}>
+        <View style={{ flex: 1 }}>
+          <H1 sub="Продукты и профиль учитываются во всех ответах ассистента">Настройки</H1>
+        </View>
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
+      </View>
 
       <Text style={styles.section}>ПРОДУКТЫ (УСЛУГИ)</Text>
       {products.map((p) => (
@@ -119,6 +124,24 @@ export default function SettingsScreen({ navigation, route }) {
         <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить профиль"} tone="accent" onPress={persistProfile} />
       </Card>
 
+      <Text style={styles.section}>МОЙ СТИЛЬ СООБЩЕНИЙ</Text>
+      <Card style={styles.form}>
+        <Text style={styles.voiceHint}>
+          Вставьте сюда 5–10 своих реальных сообщений клиентам (как вы приветствуете,
+          напоминаете, приглашаете). Ассистент выучит ваш тон, любимые фразы и манеру —
+          и составленные им сообщения будет не отличить от ваших.
+        </Text>
+        <TextInput
+          value={profile.voice}
+          onChangeText={setPr("voice")}
+          multiline
+          placeholder={"Например:\n«Аня, добрый день! Напоминаю про нашу встречу завтра в 14:00 🌿»\n«Привет! Как ты после прошлой сессии?»"}
+          placeholderTextColor={C.inkSoft}
+          style={[styles.input, styles.voiceArea]}
+        />
+        <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить стиль"} tone="accent" onPress={persistProfile} />
+      </Card>
+
       <Card style={styles.unpack} onPress={unpack}>
         <Text style={styles.unpackTitle}>🪄 Распаковка с ИИ</Text>
         <Text style={styles.unpackText}>
@@ -128,9 +151,6 @@ export default function SettingsScreen({ navigation, route }) {
         </Text>
         <Text style={styles.unpackCta}>Начать интервью →</Text>
       </Card>
-      <View style={{ marginTop: 8 }}>
-        <ChatReturnLink onPress={() => navigation.navigate("AIChat")} />
-      </View>
 
       <Text style={styles.section}>ПОДПИСКА</Text>
       <Card style={styles.subRow} onPress={() => navigation.navigate("Paywall")}>
@@ -171,6 +191,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
   },
   textarea: { minHeight: 64, textAlignVertical: "top" },
+  voiceArea: { minHeight: 120, textAlignVertical: "top" },
+  voiceHint: { fontSize: 12, color: C.inkSoft, lineHeight: 17, marginBottom: 10 },
+  topRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   hint: { fontSize: 11, color: C.inkSoft, marginTop: 10, lineHeight: 15 },
   unpack: { padding: 16, marginTop: 12, backgroundColor: C.primarySoft, borderColor: C.primarySoft },
   unpackTitle: { fontSize: 15, fontWeight: "600", color: C.primary },

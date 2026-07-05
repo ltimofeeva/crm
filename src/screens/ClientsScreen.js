@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from "react";
-import { ScrollView, View, Text, TextInput, StyleSheet } from "react-native";
+import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
-import { Card, Tag, H1, PrimaryButton } from "../components/ui";
+import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import { getClients, addClient } from "../storage/store";
 
-const EMPTY_FORM = { name: "", age: "", request: "", format: "", phone: "" };
+const EMPTY_FORM = { name: "", age: "", request: "", format: "", phone: "", contactVia: "" };
+
+// Каналы связи для поля «Связаться в».
+export const CONTACT_CHANNELS = ["Телеграм", "МАКС", "ВК", "СМС", "По телефону"];
 
 // Маска телефона: +7 (XXX) XXX-XX-XX. Оставляем только цифры и форматируем.
 function formatPhone(value) {
@@ -63,8 +66,9 @@ export default function ClientsScreen({ navigation, route }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.headRow}>
-        <H1>Клиенты</H1>
+        <View style={{ flex: 1 }}><H1>Клиенты</H1></View>
         {!formOpen && <PrimaryButton title="＋ Новый" onPress={() => setFormOpen(true)} />}
+        <BrainButton onPress={() => navigation.navigate("AIChat")} />
       </View>
 
       {formOpen && (
@@ -83,6 +87,18 @@ export default function ClientsScreen({ navigation, route }) {
             maxLength={18}
             style={styles.input}
           />
+          <Text style={styles.channelLabel}>Связаться в</Text>
+          <View style={styles.channelRow}>
+            {CONTACT_CHANNELS.map((ch) => (
+              <Pressable
+                key={ch}
+                onPress={() => setForm((f) => ({ ...f, contactVia: f.contactVia === ch ? "" : ch }))}
+                style={[styles.channelChip, form.contactVia === ch && styles.channelChipOn]}
+              >
+                <Text style={[styles.channelT, form.contactVia === ch && styles.channelTOn]}>{ch}</Text>
+              </Pressable>
+            ))}
+          </View>
           <View style={styles.formActions}>
             <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => { setFormOpen(false); setForm(EMPTY_FORM); }} /></View>
             <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={save} /></View>
@@ -138,7 +154,13 @@ export default function ClientsScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  channelLabel: { fontSize: 11, color: C.inkSoft, marginBottom: 6 },
+  channelRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+  channelChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  channelChipOn: { backgroundColor: C.primary, borderColor: C.primary },
+  channelT: { fontSize: 12, color: C.ink },
+  channelTOn: { color: C.white },
   form: { padding: 14, marginBottom: 12 },
   formTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
   input: {

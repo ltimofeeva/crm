@@ -13,8 +13,14 @@ import { Platform } from "react-native";
 
 const extra = Constants?.expoConfig?.extra || Constants?.manifest?.extra || {};
 
-// Название «права» (entitlement) в RevenueCat, которое открывает ИИ-функции.
+// Права (entitlements) в RevenueCat:
+// - basic («Помощник») — открывает базовый функционал приложения после пробного периода;
+// - pro («Помощник Про») — дополнительно открывает все функции ИИ.
 export const ENTITLEMENT_ID = extra.revenueCatEntitlement || "pro";
+export const BASIC_ENTITLEMENT_ID = extra.revenueCatBasicEntitlement || "basic";
+
+// Длительность бесплатного периода, дней.
+export const TRIAL_DAYS = 4;
 
 const API_KEY =
   Platform.OS === "ios" ? extra.revenueCatIosKey : extra.revenueCatAndroidKey;
@@ -53,15 +59,18 @@ export async function configurePurchases() {
   }
 }
 
-// Активна ли подписка. Если биллинг не настроен — не блокируем функции,
-// чтобы можно было разрабатывать и тестировать без магазинов.
-export async function hasActiveSubscription() {
-  if (!configured) return true;
+// Уровень подписки: "dev" (биллинг не настроен — всё открыто),
+// "pro" (Помощник Про), "basic" (Помощник), "none" (нет подписки).
+export async function getSubscriptionTier() {
+  if (!configured) return "dev";
   try {
     const info = await Purchases.getCustomerInfo();
-    return !!info?.entitlements?.active?.[ENTITLEMENT_ID];
+    const active = info?.entitlements?.active || {};
+    if (active[ENTITLEMENT_ID]) return "pro";
+    if (active[BASIC_ENTITLEMENT_ID]) return "basic";
+    return "none";
   } catch (e) {
-    return false;
+    return "none";
   }
 }
 
@@ -72,14 +81,16 @@ export async function getSubscriptionPackages() {
   return offerings?.current?.availablePackages || [];
 }
 
-// Купить пакет. Возвращает true, если подписка стала активной.
+// Купить пакет. Возвращает true, если появилось любое из прав.
 export async function purchasePackage(pkg) {
   const { customerInfo } = await Purchases.purchasePackage(pkg);
-  return !!customerInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+  const active = customerInfo?.entitlements?.active || {};
+  return !!(active[ENTITLEMENT_ID] || active[BASIC_ENTITLEMENT_ID]);
 }
 
 // Восстановить покупки (обязательная кнопка по правилам App Store).
 export async function restorePurchases() {
   const customerInfo = await Purchases.restorePurchases();
-  return !!customerInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+  const active = customerInfo?.entitlements?.active || {};
+  return !!(active[ENTITLEMENT_ID] || active[BASIC_ENTITLEMENT_ID]);
 }

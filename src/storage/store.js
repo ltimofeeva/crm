@@ -18,8 +18,9 @@ const KEYS = {
   content: "practice.content.v1",
   schedule: "practice.schedule.v1",
   reminders: "practice.reminders.v1",
-  chat: "practice.chat.v1",
+  chats: "practice.chats.v1",
   blocks: "practice.blocks.v1",
+  installedAt: "practice.installedAt.v1",
 };
 
 async function read(key, fallback) {
@@ -51,7 +52,7 @@ export async function saveClients(clients) {
 }
 
 // Добавить нового клиента. Обязательное поле — только имя.
-export async function addClient({ name, age, request, format, phone }) {
+export async function addClient({ name, age, request, format, phone, contactVia }) {
   const clients = await getClients();
   const client = {
     id: Date.now(),
@@ -60,6 +61,7 @@ export async function addClient({ name, age, request, format, phone }) {
     request: (request || "").trim(),
     format: (format || "").trim() || "Онлайн",
     phone: (phone || "").trim(),
+    contactVia: (contactVia || "").trim(),
     status: "Активный",
     since: new Date().toLocaleDateString("ru-RU", { month: "short", year: "numeric" }),
     nextSession: "—",
@@ -153,7 +155,7 @@ export async function deleteProduct(id) {
 // ---------- Профиль специалиста («О себе») ----------
 
 export async function getProfile() {
-  return read(KEYS.profile, { activity: "", approach: "", strengths: "" });
+  return read(KEYS.profile, { activity: "", approach: "", strengths: "", voice: "" });
 }
 
 export async function saveProfile(profile) {
@@ -244,19 +246,29 @@ export async function saveReminders(items) {
   await write(KEYS.reminders, { items, updatedAt: Date.now() });
 }
 
-// ---------- История чата с ассистентом ----------
+// ---------- Диалоги с ассистентом ----------
+// { activeId: id | null, list: [{ id, title, messages, updatedAt }] } — до 10 диалогов.
 
-export async function getChatHistory() {
-  return read(KEYS.chat, []);
+export async function getChatState() {
+  return read(KEYS.chats, { activeId: null, list: [] });
 }
 
-export async function saveChatHistory(messages) {
-  // Храним последние 60 реплик, чтобы история не разрасталась бесконечно.
-  await write(KEYS.chat, (messages || []).slice(-60));
+export async function saveChatState(state) {
+  const list = (state.list || [])
+    .map((c) => ({ ...c, messages: (c.messages || []).slice(-60) }))
+    .slice(0, 10);
+  await write(KEYS.chats, { activeId: state.activeId ?? null, list });
 }
 
-export async function clearChatHistory() {
-  await AsyncStorage.removeItem(KEYS.chat);
+// ---------- Дата первого запуска (для бесплатного периода) ----------
+
+export async function getInstalledAt() {
+  let ts = await read(KEYS.installedAt, null);
+  if (!ts) {
+    ts = Date.now();
+    await write(KEYS.installedAt, ts);
+  }
+  return ts;
 }
 
 // ---------- Полная очистка (для отладки) ----------
