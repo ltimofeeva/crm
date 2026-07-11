@@ -6,8 +6,10 @@ import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-nat
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
+import ReminderCard from "../components/ReminderCard";
 import {
   getClients, getEvents, getProducts, getSchedule, getReminders, saveReminders,
+  addClientTouch, markReminderDone,
 } from "../storage/store";
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -200,25 +202,17 @@ export default function AnalyticsScreen({ navigation }) {
             </Card>
           )}
           {remState !== "loading" && reminders.map((r, i) => (
-            <Card key={i} style={styles.saleCard}>
-              <View style={styles.saleTop}>
-                <Text
-                  style={[styles.saleClient, styles.saleClientLink]}
-                  onPress={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
-                >
-                  {r.client} →
-                </Text>
-                <Tag tone={SEGMENT_TONE[r.segment] || "green"}>{r.segment}</Tag>
-              </View>
-              <Text style={styles.saleReason}>{r.reason}</Text>
-              <Text style={styles.saleAction}>{r.action}</Text>
-              <View style={{ marginTop: 10, alignSelf: "flex-start" }}>
-                <PrimaryButton
-                  title="Составить сообщение"
-                  onPress={() => navigation.navigate("AIChat", { preset: messagePreset(r) })}
-                />
-              </View>
-            </Card>
+            <View key={i} style={{ marginTop: 8 }}>
+              <ReminderCard
+                reminder={r}
+                onOpenClient={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
+                onCompose={() => navigation.navigate("AIChat", { preset: messagePreset(r) })}
+                onLogged={async (type, note) => {
+                  await addClientTouch(r.client, { type, note, reason: r.reason });
+                  setReminders(await markReminderDone(i, { type, note }));
+                }}
+              />
+            </View>
           ))}
         </>
       )}

@@ -6,11 +6,13 @@ import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-nat
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
-import { getClients, getEvents, getReminders, saveReminders } from "../storage/store";
+import ReminderCard from "../components/ReminderCard";
+import {
+  getClients, getEvents, getReminders, saveReminders,
+  addClientTouch, markReminderDone,
+} from "../storage/store";
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
-
-const SEGMENT_TONE = { холодный: "clay", тёплый: "clay", горячий: "green" };
 
 function todayTitle() {
   const s = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
@@ -55,6 +57,13 @@ export default function DashboardScreen({ navigation }) {
 
   const composeMessage = (r) => {
     navigation.navigate("AIChat", { preset: messagePreset(r) });
+  };
+
+  // Галочка «связалась»: итог уходит в журнал клиента, карточка гаснет.
+  const logTouch = async (r, index, type, note) => {
+    await addClientTouch(r.client, { type, note, reason: r.reason });
+    const items = await markReminderDone(index, { type, note });
+    setReminders(items);
   };
 
   return (
@@ -130,22 +139,13 @@ export default function DashboardScreen({ navigation }) {
             </Card>
           )}
           {remState !== "loading" && reminders.map((r, i) => (
-            <Card key={i} style={styles.reminder}>
-              <View style={styles.remTop}>
-                <Text
-                  style={[styles.remClient, styles.remClientLink]}
-                  onPress={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
-                >
-                  {r.client} →
-                </Text>
-                <Tag tone={SEGMENT_TONE[r.segment] || "green"}>{r.segment}</Tag>
-              </View>
-              <Text style={styles.remReason}>{r.reason}</Text>
-              <Text style={styles.remAction}>{r.action}</Text>
-              <View style={{ marginTop: 10, alignSelf: "flex-start" }}>
-                <PrimaryButton title="Составить сообщение" onPress={() => composeMessage(r)} />
-              </View>
-            </Card>
+            <ReminderCard
+              key={i}
+              reminder={r}
+              onOpenClient={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
+              onCompose={() => composeMessage(r)}
+              onLogged={(type, note) => logTouch(r, i, type, note)}
+            />
           ))}
         </>
       )}

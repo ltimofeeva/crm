@@ -280,7 +280,8 @@ export async function deleteBlock(id) {
 }
 
 // ---------- Напоминания (генерирует ИИ) ----------
-// { items: [{client, segment, reason, action}], updatedAt: timestamp }
+// { items: [{client, segment, reason, action, done?, doneType?, doneNote?}],
+//   updatedAt: timestamp }
 
 export async function getReminders() {
   return read(KEYS.reminders, { items: [], updatedAt: 0 });
@@ -288,6 +289,37 @@ export async function getReminders() {
 
 export async function saveReminders(items) {
   await write(KEYS.reminders, { items, updatedAt: Date.now() });
+}
+
+// Отметить напоминание выполненным (галочка «связалась»).
+export async function markReminderDone(index, { type, note }) {
+  const st = await getReminders();
+  const items = [...(st.items || [])];
+  if (items[index]) {
+    items[index] = { ...items[index], done: true, doneType: type, doneNote: note };
+  }
+  await write(KEYS.reminders, { items, updatedAt: st.updatedAt || Date.now() });
+  return items;
+}
+
+// ---------- Контакты с клиентом вне сессий (звонок/встреча/сообщение) ----------
+// Хранятся у клиента: touches: [{id, date "ГГГГ-ММ-ДД", type, note, reason}].
+// ИИ учитывает их, планируя следующие касания.
+
+export async function addClientTouch(clientName, { type, note, reason }) {
+  const clients = await getClients();
+  const next = clients.map((c) => {
+    if (c.name !== clientName) return c;
+    const touch = {
+      id: Date.now(),
+      date: new Date().toISOString().slice(0, 10),
+      type,
+      note: (note || "").trim(),
+      reason: reason || "",
+    };
+    return { ...c, touches: [touch, ...(c.touches || [])].slice(0, 20) };
+  });
+  await saveClients(next);
 }
 
 // ---------- Диалоги с ассистентом ----------

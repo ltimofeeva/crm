@@ -40,12 +40,22 @@ export default function AIChatScreen({ route, navigation }) {
       setSystem(s);
       const st = await getChatState();
       setConvos(st.list || []);
-      activeIdRef.current = st.activeId || null;
-      const active = (st.list || []).find((c) => c.id === st.activeId);
-      setMessages(active?.messages || []);
+      const preset = route.params?.preset;
+      if (preset || route.params?.unpack) {
+        // Пришли с другого экрана с готовым запросом (новая тема) —
+        // открываем НОВЫЙ диалог, промпт уже вставлен в поле ввода.
+        activeIdRef.current = null;
+        setMessages([]);
+        if (preset) setInput(preset);
+      } else {
+        // Открыли через 🧠 — продолжаем последний диалог.
+        activeIdRef.current = st.activeId || null;
+        const active = (st.list || []).find((c) => c.id === st.activeId);
+        setMessages(active?.messages || []);
+      }
       setReady(true);
     })();
-  }, [route.params?.unpack]);
+  }, [route.params?.preset, route.params?.unpack]);
 
   // Сохраняем активный диалог после каждого изменения.
   useEffect(() => {
