@@ -96,6 +96,11 @@ export default function App() {
             component={EventDetailScreen}
             options={{ title: "Событие", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
           />
+          <Stack.Screen
+            name="ClientCard"
+            component={ClientDetailScreen}
+            options={{ title: "Карта клиента", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </SubscriptionProvider>

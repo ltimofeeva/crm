@@ -205,7 +205,12 @@ export default function AnalyticsScreen({ navigation }) {
             <View key={i} style={{ marginTop: 8 }}>
               <ReminderCard
                 reminder={r}
-                onOpenClient={() => navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } })}
+                onOpenClient={() => {
+                  // Открываем карточку поверх текущего экрана: «назад» вернёт сюда.
+                  const c = clients.find((x) => x.name === r.client);
+                  if (c) navigation.navigate("ClientCard", { id: c.id });
+                  else navigation.navigate("Clients", { screen: "ClientsList", params: { openName: r.client } });
+                }}
                 onCompose={() => navigation.navigate("AIChat", { preset: messagePreset(r) })}
                 onLogged={async (type, note) => {
                   await addClientTouch(r.client, { type, note, reason: r.reason });
