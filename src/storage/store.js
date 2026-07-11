@@ -77,17 +77,61 @@ export async function addSessionNote(clientId, note) {
   const clients = await getClients();
   const next = clients.map((c) => {
     if (c.id !== clientId) return c;
-    const n = (c.sessionsCount || 0) + 1;
+    const sessions = c.sessions || [];
+    const n = sessions.reduce((m, s) => Math.max(m, s.n || 0), 0) + 1;
     const entry = {
       n,
       date: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }),
       note,
       mood: "→ Ровно",
     };
-    return { ...c, sessionsCount: n, sessions: [entry, ...(c.sessions || [])] };
+    const nextSessions = [entry, ...sessions];
+    return { ...c, sessionsCount: nextSessions.length, sessions: nextSessions };
   });
   await saveClients(next);
   return next;
+}
+
+// Заметка/статус события переносится в историю сессий клиента.
+// Повторное сохранение того же события обновляет запись, а не дублирует
+// (связь — по eventId).
+const STATUS_MOOD = {
+  progress: "↑ Прогресс",
+  stable: "→ Стабильно",
+  regress: "↓ Регресс",
+  none: "—",
+};
+
+export async function syncEventToClientHistory(event) {
+  if (!event?.clientId) return;
+  const clients = await getClients();
+  const next = clients.map((c) => {
+    if (c.id !== event.clientId) return c;
+    const sessions = [...(c.sessions || [])];
+    const idx = sessions.findIndex((s) => s.eventId === event.id);
+    const [y, m, d] = (event.date || "").split("-").map(Number);
+    const dateStr = y
+      ? new Date(y, m - 1, d).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })
+      : "";
+    if (idx >= 0) {
+      sessions[idx] = {
+        ...sessions[idx],
+        note: (event.note || "").trim() || sessions[idx].note,
+        mood: STATUS_MOOD[event.status] || sessions[idx].mood,
+      };
+    } else {
+      const n = sessions.reduce((mx, s) => Math.max(mx, s.n || 0), 0) + 1;
+      sessions.unshift({
+        n,
+        date: dateStr,
+        note: (event.note || "").trim(),
+        mood: STATUS_MOOD[event.status] || "—",
+        eventId: event.id,
+      });
+    }
+    return { ...c, sessions, sessionsCount: sessions.length };
+  });
+  await saveClients(next);
 }
 
 // ---------- События календаря ----------

@@ -7,7 +7,7 @@ import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-
 import { confirmAsync } from "../utils/confirm";
 import { C, SERIF } from "../theme";
 import { Card, Tag, PrimaryButton } from "../components/ui";
-import { getEvents, updateEvent, deleteEvent } from "../storage/store";
+import { getEvents, updateEvent, deleteEvent, syncEventToClientHistory } from "../storage/store";
 
 const STATUSES = [
   { key: "none", label: "Нет статуса" },
@@ -39,7 +39,12 @@ export default function EventDetailScreen({ route, navigation }) {
   if (!event) return <View style={styles.wrap}><Text style={{ color: C.inkSoft }}>Загрузка…</Text></View>;
 
   const save = async () => {
-    await updateEvent(id, { note: note.trim(), status });
+    const updated = await updateEvent(id, { note: note.trim(), status });
+    // Если событие привязано к клиенту — заметка и статус попадают
+    // в его историю сессий (и увеличивают счётчик сессий).
+    if (updated?.clientId && (note.trim() || status !== "none")) {
+      await syncEventToClientHistory(updated);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };

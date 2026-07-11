@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { ScrollView, View, Text, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { C, SERIF } from "../theme";
 import * as Clipboard from "expo-clipboard";
@@ -30,11 +31,13 @@ export default function ClientDetailScreen({ route, navigation }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     const all = await getClients();
     setClient(all.find((c) => c.id === id) || null);
-  };
-  useEffect(() => { reload(); }, [id]);
+  }, [id]);
+  // Перечитываем при каждом возврате на экран — чтобы заметки из событий
+  // и другие изменения появлялись сразу.
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
   if (!client) return <View style={styles.wrap}><Text style={{ color: C.inkSoft }}>Загрузка…</Text></View>;
 
