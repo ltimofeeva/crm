@@ -180,15 +180,23 @@ export default function ContentScreen({ navigation }) {
 
           <View style={styles.itemActions}>
             {editId !== it.id && !it.text ? (
-              <Pressable onPress={() => openEditor(it)}><Text style={styles.action}>✎ Добавить текст</Text></Pressable>
+              <Pressable onPress={() => openEditor(it)} style={styles.actionBtn}>
+                <Text style={styles.action}>✎ Добавить текст</Text>
+              </Pressable>
             ) : null}
             {seg !== "planned" && (
-              <Pressable onPress={() => draftWithAI(it)}><Text style={styles.action}>Черновик с ИИ</Text></Pressable>
+              <Pressable onPress={() => draftWithAI(it)} style={styles.actionBtn}>
+                <Text style={styles.action}>Черновик с ИИ</Text>
+              </Pressable>
             )}
             {NEXT[seg] && (
-              <Pressable onPress={() => move(it.id)}><Text style={styles.action}>{NEXT[seg].label}</Text></Pressable>
+              <Pressable onPress={() => move(it.id)} style={styles.actionBtn}>
+                <Text style={styles.action}>{NEXT[seg].label}</Text>
+              </Pressable>
             )}
-            <Pressable onPress={() => remove(it.id)}><Text style={[styles.action, { color: C.accent }]}>Удалить</Text></Pressable>
+            <Pressable onPress={() => remove(it.id)} style={[styles.actionBtn, styles.actionBtnDanger]}>
+              <Text style={[styles.action, { color: C.accent }]}>Удалить</Text>
+            </Pressable>
           </View>
         </Card>
       ))}
@@ -213,7 +221,12 @@ const styles = StyleSheet.create({
   item: { padding: 14, marginBottom: 8 },
   itemTitle: { fontSize: 14, fontWeight: "600", color: C.ink, lineHeight: 19 },
   itemSub: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 16 },
-  itemActions: { flexDirection: "row", gap: 16, marginTop: 10, flexWrap: "wrap" },
+  itemActions: { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" },
+  actionBtn: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
+  },
+  actionBtnDanger: { borderColor: C.accent, backgroundColor: C.accentSoft },
   action: { fontSize: 12, color: C.primary, fontWeight: "600" },
   textPreview: { backgroundColor: C.bg, borderRadius: 10, padding: 10, marginTop: 8 },
   textPreviewT: { fontSize: 12, color: C.ink, lineHeight: 17 },
