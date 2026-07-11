@@ -11,110 +11,17 @@ import { C, SERIF } from "../theme";
 import { Card, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
   getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
-  getBlocks, addBlock, deleteBlock,
+  getBlocks, addBlock, updateBlock, deleteBlock,
 } from "../storage/store";
 import { confirmAsync } from "../utils/confirm";
+import {
+  WD, dateKey, addDays, showDate, toMin, maskTime, validTime, normalizeTime,
+} from "../utils/datetime";
+import MiniCalendar from "../components/MiniCalendar";
 
-const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Пн..Вс в терминах getDay()
 const HOUR_H = 56;   // высота часа в пикселях
 const GUTTER = 44;   // ширина колонки времени
-
-export function dateKey(d) {
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-function addDays(iso, n) {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return dateKey(d);
-}
-
-function monthMatrix(year, month) {
-  const first = new Date(year, month, 1);
-  const shift = (first.getDay() + 6) % 7;
-  const daysIn = new Date(year, month + 1, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < shift; i++) cells.push(null);
-  for (let d = 1; d <= daysIn; d++) cells.push(new Date(year, month, d));
-  while (cells.length % 7 !== 0) cells.push(null);
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  return weeks;
-}
-
-function showDate(iso) {
-  if (!iso) return "";
-  const [y, mo, d] = iso.split("-");
-  return `${d}.${mo}.${y}`;
-}
-
-// "12:30" → минуты от полуночи; некорректное значение → NaN.
-function toMin(t) {
-  const m = /^(\d{1,2})[:.](\d{2})$/.exec((t || "").trim());
-  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : NaN;
-}
-
-// Маска времени --:-- — только цифры, двоеточие ставится само.
-function maskTime(v) {
-  const d = (v || "").replace(/\D/g, "").slice(0, 4);
-  return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
-}
-
-function validTime(t) {
-  return /^([01]?\d|2[0-3]):[0-5]\d$/.test((t || "").trim());
-}
-
-// «14» при уходе с поля → «14:00»; «1430» → «14:30».
-function normalizeTime(v) {
-  const d = (v || "").replace(/\D/g, "");
-  if (!d) return "";
-  let hh = parseInt(d.slice(0, 2), 10);
-  let mm = d.length > 2 ? parseInt(d.slice(2, 4).padEnd(2, "0"), 10) : 0;
-  if (isNaN(hh)) return "";
-  hh = Math.min(hh, 23);
-  mm = Math.min(isNaN(mm) ? 0 : mm, 59);
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-}
-
-// Компактный календарик для выбора даты.
-function MiniCalendar({ value, onPick }) {
-  const init = value ? new Date(value + "T00:00:00") : new Date();
-  const [cur, setCur] = useState(new Date(init.getFullYear(), init.getMonth(), 1));
-  const weeks = monthMatrix(cur.getFullYear(), cur.getMonth());
-  const title = cur.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
-  return (
-    <View style={mini.box}>
-      <View style={mini.head}>
-        <Pressable onPress={() => setCur(new Date(cur.getFullYear(), cur.getMonth() - 1, 1))} style={mini.nav}>
-          <Text style={mini.navT}>‹</Text>
-        </Pressable>
-        <Text style={mini.title}>{title.charAt(0).toUpperCase() + title.slice(1)}</Text>
-        <Pressable onPress={() => setCur(new Date(cur.getFullYear(), cur.getMonth() + 1, 1))} style={mini.nav}>
-          <Text style={mini.navT}>›</Text>
-        </Pressable>
-      </View>
-      <View style={mini.week}>
-        {WD.map((w) => <Text key={w} style={mini.wd}>{w}</Text>)}
-      </View>
-      {weeks.map((week, wi) => (
-        <View key={wi} style={mini.week}>
-          {week.map((d, di) => {
-            if (!d) return <View key={di} style={mini.cell} />;
-            const key = dateKey(d);
-            const sel = key === value;
-            return (
-              <Pressable key={di} onPress={() => onPick(key)} style={[mini.cell, sel && mini.cellSel]}>
-                <Text style={[mini.cellT, sel && mini.cellTSel]}>{d.getDate()}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
 
 // Обёртка всплывающего окна.
 function Popup({ visible, onClose, title, children }) {
@@ -157,9 +64,10 @@ export default function CalendarScreen({ navigation }) {
   const [clientSug, setClientSug] = useState(false);
   const [productSug, setProductSug] = useState(false);
 
-  // Форма закрытия времени.
-  const [blockForm, setBlockForm] = useState({ date: "", start: "", end: "" });
+  // Форма закрытия времени. blockEditId: null — новый блок, иначе правка.
+  const [blockForm, setBlockForm] = useState({ date: "", start: "", end: "", title: "" });
   const [blockError, setBlockError] = useState("");
+  const [blockEditId, setBlockEditId] = useState(null);
 
   // График.
   const [schedFrom, setSchedFrom] = useState("");
@@ -304,7 +212,16 @@ export default function CalendarScreen({ navigation }) {
   // ---------- Закрытое время ----------
 
   const openBlockModal = (date) => {
-    setBlockForm({ date: date || startDate, start: "", end: "" });
+    setBlockEditId(null);
+    setBlockForm({ date: date || startDate, start: "", end: "", title: "" });
+    setBlockError("");
+    setBlockModal(true);
+  };
+
+  // Клик по серой плашке — редактирование: время, название, удаление.
+  const openBlockEdit = (b) => {
+    setBlockEditId(b.id);
+    setBlockForm({ date: b.date, start: b.start, end: b.end, title: b.title || "" });
     setBlockError("");
     setBlockModal(true);
   };
@@ -314,14 +231,21 @@ export default function CalendarScreen({ navigation }) {
     const end = normalizeTime(blockForm.end);
     if (!start || !end) { setBlockError("Укажите время «с» и «до»."); return; }
     if (toMin(end) <= toMin(start)) { setBlockError("Время «до» должно быть позже времени «с»."); return; }
-    await addBlock({ date: blockForm.date, start, end });
+    const data = { date: blockForm.date, start, end, title: blockForm.title.trim() };
+    if (blockEditId) {
+      await updateBlock(blockEditId, data);
+    } else {
+      await addBlock(data);
+    }
     setBlockModal(false);
     load();
   };
 
-  const removeBlock = async (b) => {
-    if (await confirmAsync("Открыть это время?", `Закрыто ${b.start}–${b.end}`, "Открыть", "Отмена")) {
-      await deleteBlock(b.id);
+  const removeBlock = async () => {
+    if (!blockEditId) return;
+    if (await confirmAsync("Открыть это время?", "Серая плашка будет удалена.", "Открыть", "Отмена")) {
+      await deleteBlock(blockEditId);
+      setBlockModal(false);
       load();
     }
   };
@@ -360,8 +284,9 @@ export default function CalendarScreen({ navigation }) {
           const top = ((toMin(b.start) - gridStart) / 60) * HOUR_H;
           const h = Math.max(((toMin(b.end) - toMin(b.start)) / 60) * HOUR_H, 20);
           return (
-            <Pressable key={b.id} onPress={() => removeBlock(b)} style={[styles.blockBox, { top, height: h }]}>
-              <Text style={styles.blockBoxT} numberOfLines={1}>⛔ {b.start}–{b.end}</Text>
+            <Pressable key={b.id} onPress={() => openBlockEdit(b)} style={[styles.blockBox, { top, height: h }]}>
+              <Text style={styles.blockBoxT} numberOfLines={1}>⛔ {b.title || "Закрыто"}</Text>
+              {h > 36 ? <Text style={styles.blockBoxTime}>{b.start}–{b.end}</Text> : null}
             </Pressable>
           );
         })}
@@ -545,15 +470,27 @@ export default function CalendarScreen({ navigation }) {
         </View>
       </Popup>
 
-      <Popup visible={blockModal} onClose={() => setBlockModal(false)} title="Закрыть время">
+      <Popup
+        visible={blockModal}
+        onClose={() => setBlockModal(false)}
+        title={blockEditId ? "Закрытое время" : "Закрыть время"}
+      >
         <Text style={styles.label}>Дата</Text>
         <View style={styles.chipsRow}>
-          {days.map((d) => (
+          {(blockEditId && !days.includes(blockForm.date) ? [blockForm.date, ...days] : days).map((d) => (
             <Pressable key={d} onPress={() => setBlockForm((f) => ({ ...f, date: d }))} style={[styles.chip, blockForm.date === d && styles.chipOn]}>
               <Text style={[styles.chipT, blockForm.date === d && styles.chipTOn]}>{showDate(d).slice(0, 5)}</Text>
             </Pressable>
           ))}
         </View>
+        <Text style={styles.label}>Название (например: Обед, Супервизия)</Text>
+        <TextInput
+          value={blockForm.title}
+          onChangeText={(v) => setBlockForm((b) => ({ ...b, title: v }))}
+          placeholder="Закрыто"
+          placeholderTextColor={C.inkSoft}
+          style={styles.input}
+        />
         <Text style={styles.label}>Серые часы — на них не записывать</Text>
         <View style={styles.rowInputs}>
           <TextInput
@@ -574,8 +511,14 @@ export default function CalendarScreen({ navigation }) {
         </View>
         {blockError ? <Text style={styles.formError}>{blockError}</Text> : null}
         <View style={styles.rowInputs}>
-          <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setBlockModal(false)} /></View>
-          <View style={{ flex: 1 }}><PrimaryButton title="Закрыть время" tone="accent" onPress={saveBlock} /></View>
+          {blockEditId ? (
+            <View style={{ flex: 1 }}><PrimaryButton title="Удалить" tone="soft" onPress={removeBlock} /></View>
+          ) : (
+            <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setBlockModal(false)} /></View>
+          )}
+          <View style={{ flex: 1 }}>
+            <PrimaryButton title={blockEditId ? "Сохранить" : "Закрыть время"} tone="accent" onPress={saveBlock} />
+          </View>
         </View>
       </Popup>
 
@@ -650,20 +593,6 @@ export default function CalendarScreen({ navigation }) {
   );
 }
 
-const mini = StyleSheet.create({
-  box: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 8, marginBottom: 8 },
-  head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  nav: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  navT: { fontSize: 18, color: C.primary },
-  title: { fontSize: 13, fontWeight: "600", color: C.ink },
-  week: { flexDirection: "row" },
-  wd: { flex: 1, textAlign: "center", fontSize: 10, color: C.inkSoft, paddingVertical: 3 },
-  cell: { flex: 1, aspectRatio: 1.2, alignItems: "center", justifyContent: "center", borderRadius: 8 },
-  cellSel: { backgroundColor: C.primary },
-  cellT: { fontSize: 12, color: C.ink },
-  cellTSel: { color: C.white, fontWeight: "700" },
-});
-
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 16 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
@@ -699,6 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#DDE0DC", overflow: "hidden", justifyContent: "center",
   },
   blockBoxT: { fontSize: 10, color: C.inkSoft, fontWeight: "600" },
+  blockBoxTime: { fontSize: 9, color: C.inkSoft, marginTop: 1 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(36,51,44,0.4)", alignItems: "center", justifyContent: "center", padding: 16 },
   modalCard: { width: "100%", maxWidth: 420, backgroundColor: C.white, borderRadius: 16, padding: 16 },
   modalHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },

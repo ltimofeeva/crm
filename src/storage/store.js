@@ -116,6 +116,7 @@ export async function syncEventToClientHistory(event) {
     if (idx >= 0) {
       sessions[idx] = {
         ...sessions[idx],
+        date: dateStr || sessions[idx].date,
         note: (event.note || "").trim() || sessions[idx].note,
         mood: STATUS_MOOD[event.status] || sessions[idx].mood,
       };
@@ -261,17 +262,24 @@ export async function saveSchedule(schedule) {
 }
 
 // ---------- Закрытое время (серые плашки в календаре) ----------
-// Блок: { id, date: "ГГГГ-ММ-ДД", start: "12:00", end: "14:00" }
+// Блок: { id, date: "ГГГГ-ММ-ДД", start: "12:00", end: "14:00", title: "Обед" }
 
 export async function getBlocks() {
   return read(KEYS.blocks, []);
 }
 
-export async function addBlock({ date, start, end }) {
+export async function addBlock({ date, start, end, title }) {
   const blocks = await getBlocks();
-  const item = { id: Date.now(), date, start, end };
+  const item = { id: Date.now(), date, start, end, title: (title || "").trim() };
   await write(KEYS.blocks, [...blocks, item]);
   return item;
+}
+
+export async function updateBlock(id, patch) {
+  const blocks = await getBlocks();
+  const next = blocks.map((b) => (b.id === id ? { ...b, ...patch } : b));
+  await write(KEYS.blocks, next);
+  return next.find((b) => b.id === id);
 }
 
 export async function deleteBlock(id) {
