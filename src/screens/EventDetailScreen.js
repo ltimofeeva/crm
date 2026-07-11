@@ -55,8 +55,8 @@ export default function EventDetailScreen({ route, navigation }) {
     if (updated?.clientId && (note.trim() || status !== "none")) {
       await syncEventToClientHistory(updated);
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    // После сохранения окно закрывается автоматически.
+    navigation.goBack();
   };
 
   const remove = async () => {
@@ -159,7 +159,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
       <View style={styles.actions}>
         <View style={{ flex: 1 }}><PrimaryButton title="Удалить" tone="soft" onPress={remove} /></View>
-        <View style={{ flex: 1 }}><PrimaryButton title={saved ? "Сохранено ✓" : "Сохранить"} tone="accent" onPress={save} /></View>
+        <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={save} /></View>
       </View>
     </ScrollView>
   );

@@ -7,7 +7,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { C } from "../theme";
 import { Card, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
-  getContent, addContentItem, moveContentItem, deleteContentItem,
+  getContent, addContentItem, moveContentItem, deleteContentItem, updateContentItem,
 } from "../storage/store";
 import { buildFullContext, fetchContentIdeas } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -27,6 +27,9 @@ export default function ContentScreen({ navigation }) {
   const [genState, setGenState] = useState("idle");
   const [newTitle, setNewTitle] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  // Раскрытый редактор текста темы: id записи и её черновик текста.
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState("");
 
   const load = useCallback(async () => setContent(await getContent()), []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -68,6 +71,19 @@ export default function ContentScreen({ navigation }) {
 
   const move = async (id) => { await moveContentItem(seg, NEXT[seg].to, id); load(); };
   const remove = async (id) => { await deleteContentItem(seg, id); load(); };
+
+  // Текст/заметка к теме: переносится вместе с ней в черновики и запланированное.
+  const openEditor = (it) => {
+    if (editId === it.id) { setEditId(null); return; }
+    setEditId(it.id);
+    setEditText(it.text || "");
+  };
+
+  const saveText = async (it) => {
+    await updateContentItem(seg, it.id, { text: editText.trim() });
+    setEditId(null);
+    load();
+  };
 
   const items = content[seg] || [];
 
@@ -135,7 +151,37 @@ export default function ContentScreen({ navigation }) {
         <Card key={it.id} style={styles.item}>
           <Text style={styles.itemTitle}>{it.title}</Text>
           {it.extra ? <Text style={styles.itemSub}>{it.extra}</Text> : null}
+
+          {/* Сохранённый текст (свёрнутый показ) */}
+          {it.text && editId !== it.id ? (
+            <Pressable onPress={() => openEditor(it)} style={styles.textPreview}>
+              <Text style={styles.textPreviewT} numberOfLines={3}>{it.text}</Text>
+              <Text style={styles.textPreviewMore}>Развернуть / изменить</Text>
+            </Pressable>
+          ) : null}
+
+          {/* Редактор текста */}
+          {editId === it.id && (
+            <View style={styles.editor}>
+              <TextInput
+                value={editText}
+                onChangeText={setEditText}
+                multiline
+                placeholder="Заметки, текст поста, идеи оформления…"
+                placeholderTextColor={C.inkSoft}
+                style={styles.editorInput}
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}><PrimaryButton title="Свернуть" tone="soft" onPress={() => setEditId(null)} /></View>
+                <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={() => saveText(it)} /></View>
+              </View>
+            </View>
+          )}
+
           <View style={styles.itemActions}>
+            {editId !== it.id && !it.text ? (
+              <Pressable onPress={() => openEditor(it)}><Text style={styles.action}>✎ Добавить текст</Text></Pressable>
+            ) : null}
             {seg !== "planned" && (
               <Pressable onPress={() => draftWithAI(it)}><Text style={styles.action}>Черновик с ИИ</Text></Pressable>
             )}
@@ -167,6 +213,15 @@ const styles = StyleSheet.create({
   item: { padding: 14, marginBottom: 8 },
   itemTitle: { fontSize: 14, fontWeight: "600", color: C.ink, lineHeight: 19 },
   itemSub: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 16 },
-  itemActions: { flexDirection: "row", gap: 16, marginTop: 10 },
+  itemActions: { flexDirection: "row", gap: 16, marginTop: 10, flexWrap: "wrap" },
   action: { fontSize: 12, color: C.primary, fontWeight: "600" },
+  textPreview: { backgroundColor: C.bg, borderRadius: 10, padding: 10, marginTop: 8 },
+  textPreviewT: { fontSize: 12, color: C.ink, lineHeight: 17 },
+  textPreviewMore: { fontSize: 11, color: C.primary, marginTop: 6, fontWeight: "600" },
+  editor: { marginTop: 8 },
+  editorInput: {
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: C.ink,
+    minHeight: 100, textAlignVertical: "top", marginBottom: 8,
+  },
 });

@@ -166,6 +166,24 @@ export default function ClientDetailScreen({ route, navigation }) {
         </Card>
       )}
 
+      {(client.touches || []).length > 0 && (
+        <>
+          <Text style={styles.section}>СВЯЗЬ С КЛИЕНТОМ</Text>
+          {(client.touches || []).map((t) => (
+            <Card key={t.id} style={styles.touch}>
+              <View style={styles.touchTop}>
+                <Text style={styles.touchType}>
+                  {t.type === "Звонок" ? "📞" : t.type === "Встреча" ? "🤝" : "💬"} {t.type}
+                </Text>
+                <Text style={styles.touchDate}>{t.date ? t.date.split("-").reverse().join(".") : ""}</Text>
+              </View>
+              {t.note ? <Text style={styles.touchNote}>{t.note}</Text> : null}
+              {t.reason ? <Text style={styles.touchReason}>Повод: {t.reason}</Text> : null}
+            </Card>
+          ))}
+        </>
+      )}
+
       <Text style={styles.section}>ИСТОРИЯ СЕССИЙ</Text>
       {(client.sessions || []).length === 0 && (
         <Card style={{ padding: 14 }}>
@@ -212,6 +230,12 @@ const styles = StyleSheet.create({
   bullet: { fontSize: 13, color: C.inkSoft, lineHeight: 19, marginBottom: 2 },
   disclaimer: { fontSize: 11, color: C.inkSoft, marginTop: 12, fontStyle: "italic" },
   section: { fontSize: 12, fontWeight: "600", color: C.inkSoft, letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
+  touch: { padding: 12, marginBottom: 8 },
+  touchTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  touchType: { fontSize: 13, fontWeight: "600", color: C.ink },
+  touchDate: { fontSize: 11, color: C.inkSoft },
+  touchNote: { fontSize: 13, color: C.ink, lineHeight: 18 },
+  touchReason: { fontSize: 11, color: C.inkSoft, marginTop: 4, fontStyle: "italic" },
   sess: { padding: 14, marginBottom: 8 },
   sessTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   sessN: { fontSize: 13, fontWeight: "600", color: C.ink },

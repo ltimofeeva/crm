@@ -124,6 +124,16 @@ export default function SettingsScreen({ navigation, route }) {
         <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить профиль"} tone="accent" onPress={persistProfile} />
       </Card>
 
+      <Card style={styles.unpack} onPress={unpack}>
+        <Text style={styles.unpackTitle}>🪄 Распаковка с ИИ</Text>
+        <Text style={styles.unpackText}>
+          Сложно описать себя и придумать продукты? Ассистент проведёт интервью
+          в 6 этапов: опыт → навыки → аудитория → продукт → цена → позиционирование.
+          Результат перенесите в поля выше.
+        </Text>
+        <Text style={styles.unpackCta}>Начать интервью →</Text>
+      </Card>
+
       <Text style={styles.section}>МОЙ СТИЛЬ СООБЩЕНИЙ</Text>
       <Card style={styles.form}>
         <Text style={styles.voiceHint}>
@@ -142,14 +152,23 @@ export default function SettingsScreen({ navigation, route }) {
         <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить стиль"} tone="accent" onPress={persistProfile} />
       </Card>
 
-      <Card style={styles.unpack} onPress={unpack}>
-        <Text style={styles.unpackTitle}>🪄 Распаковка с ИИ</Text>
-        <Text style={styles.unpackText}>
-          Сложно описать себя и придумать продукты? Ассистент проведёт интервью
-          в 6 этапов: опыт → навыки → аудитория → продукт → цена → позиционирование.
-          Результат перенесите в поля выше.
+      <Text style={styles.section}>ОСОБЕННОСТИ РАБОТЫ</Text>
+      <Card style={styles.form}>
+        <Text style={styles.voiceHint}>
+          Как вы работаете: правила записи и переноса, форматы встреч, когда и
+          как вам удобно связываться с клиентами, что вы никогда не делаете.
+          Ассистент будет учитывать это во всех рекомендациях — особенно в
+          напоминаниях о связи с клиентами.
         </Text>
-        <Text style={styles.unpackCta}>Начать интервью →</Text>
+        <TextInput
+          value={profile.workRules}
+          onChangeText={setPr("workRules")}
+          multiline
+          placeholder={"Например:\n«Не пишу клиентам после 20:00»\n«Перенос сессии — не позднее чем за сутки»\n«Новых клиентов беру только на диагностику»"}
+          placeholderTextColor={C.inkSoft}
+          style={[styles.input, styles.voiceArea]}
+        />
+        <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить особенности"} tone="accent" onPress={persistProfile} />
       </Card>
 
       <Text style={styles.section}>ПОДПИСКА</Text>

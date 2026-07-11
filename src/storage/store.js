@@ -200,7 +200,9 @@ export async function deleteProduct(id) {
 // ---------- Профиль специалиста («О себе») ----------
 
 export async function getProfile() {
-  return read(KEYS.profile, { activity: "", approach: "", strengths: "", voice: "" });
+  return read(KEYS.profile, {
+    activity: "", approach: "", strengths: "", voice: "", workRules: "",
+  });
 }
 
 export async function saveProfile(profile) {
@@ -221,6 +223,14 @@ export async function saveContent(content) {
 export async function addContentItem(section, item) {
   const content = await getContent();
   content[section] = [{ id: Date.now() + Math.random(), ...item }, ...content[section]];
+  await saveContent(content);
+  return content;
+}
+
+// Обновить запись контента (например, текст/заметку к теме).
+export async function updateContentItem(section, id, patch) {
+  const content = await getContent();
+  content[section] = content[section].map((i) => (i.id === id ? { ...i, ...patch } : i));
   await saveContent(content);
   return content;
 }
