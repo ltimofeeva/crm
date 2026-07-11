@@ -209,10 +209,10 @@ export default function CalendarScreen({ navigation }) {
   for (let m = gridStart; m < gridEnd; m += 60) hours.push(m);
   const gridHeight = ((gridEnd - gridStart) / 60) * HOUR_H;
 
-  const monthTitle = (() => {
+  // Кнопка выбора даты показывает актуальную выбранную дату.
+  const selectedTitle = (() => {
     const d = new Date(startDate + "T00:00:00");
-    const s = d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
   })();
 
   // ---------- Запись ----------
@@ -393,11 +393,12 @@ export default function CalendarScreen({ navigation }) {
     const wd = d.toLocaleDateString("ru-RU", { weekday: "short" });
     const isToday = iso === todayKey;
     return (
-      <View key={iso} style={styles.dayHeadCell}>
+      // Нажатие на дату делает её первой в окне (13 → показываются 13/14/15).
+      <Pressable key={iso} style={styles.dayHeadCell} onPress={() => setStartDate(iso)}>
         <Text style={[styles.dayHeadWd, isToday && { color: C.accent }]}>{wd}</Text>
         <Text style={[styles.dayHeadNum, SERIF, isToday && { color: C.accent }]}>{d.getDate()}</Text>
         {!isWorkday(iso) && <Text style={styles.dayHeadOff}>вых.</Text>}
-      </View>
+      </Pressable>
     );
   };
 
@@ -410,16 +411,11 @@ export default function CalendarScreen({ navigation }) {
           <BrainButton onPress={() => navigation.navigate("AIChat")} />
         </View>
 
-        {/* Панель управления: стрелки, дата, действия */}
+        {/* Выбор даты вручную */}
+        <Text style={styles.pickLabel}>Выберите дату</Text>
         <View style={styles.toolbar}>
-          <Pressable onPress={() => setStartDate(addDays(startDate, -1))} style={styles.arrow}>
-            <Text style={styles.arrowT}>‹</Text>
-          </Pressable>
           <Pressable onPress={() => setDateModal(true)} style={styles.dateBtn}>
-            <Text style={styles.dateBtnT}>📅 {monthTitle}</Text>
-          </Pressable>
-          <Pressable onPress={() => setStartDate(addDays(startDate, 1))} style={styles.arrow}>
-            <Text style={styles.arrowT}>›</Text>
+            <Text style={styles.dateBtnT}>📅 {selectedTitle}</Text>
           </Pressable>
         </View>
 
@@ -431,10 +427,15 @@ export default function CalendarScreen({ navigation }) {
           </Pressable>
         </View>
 
-        {/* Шапка дней */}
+        {/* Шапка дней: стрелки у крайних дат, клик по дате листает к ней */}
         <View style={styles.dayHeadRow}>
-          <View style={{ width: GUTTER }} />
+          <Pressable onPress={() => setStartDate(addDays(startDate, -1))} style={[styles.edgeArrow, { width: GUTTER }]}>
+            <Text style={styles.arrowT}>‹</Text>
+          </Pressable>
           {days.map(dayHead)}
+          <Pressable onPress={() => setStartDate(addDays(startDate, 1))} style={[styles.edgeArrow, { width: 28 }]}>
+            <Text style={styles.arrowT}>›</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -456,6 +457,7 @@ export default function CalendarScreen({ navigation }) {
               ))}
             </View>
             {days.map(renderDayColumn)}
+            <View style={{ width: 28 }} />
           </View>
         </View>
       </ScrollView>
@@ -477,36 +479,42 @@ export default function CalendarScreen({ navigation }) {
         </View>
 
         <Text style={styles.label}>Клиент или название события *</Text>
-        <TextInput
-          value={form.clientText} onChangeText={onClientText} onFocus={() => setClientSug(true)}
-          placeholder="Начните вводить имя…" placeholderTextColor={C.inkSoft} style={styles.input}
-        />
-        {clientSug && clientMatches.length > 0 && (
-          <View style={styles.sugBox}>
-            {clientMatches.map((c) => (
-              <Pressable key={c.id} onPress={() => pickClient(c)} style={styles.sugRow}>
-                <Text style={styles.sugT}>{c.name}</Text>
-                <Text style={styles.sugMeta}>{c.request || "клиент"}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <View style={styles.fieldWrapHigh}>
+          <TextInput
+            value={form.clientText} onChangeText={onClientText}
+            onFocus={() => { setClientSug(true); setProductSug(false); }}
+            placeholder="Начните вводить имя…" placeholderTextColor={C.inkSoft} style={styles.input}
+          />
+          {clientSug && clientMatches.length > 0 && (
+            <View style={styles.sugBox}>
+              {clientMatches.map((c) => (
+                <Pressable key={c.id} onPress={() => pickClient(c)} style={styles.sugRow}>
+                  <Text style={styles.sugT}>{c.name}</Text>
+                  <Text style={styles.sugMeta}>{c.request || "клиент"}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
         <Text style={styles.label}>Продукт (можно свой)</Text>
-        <TextInput
-          value={form.productText} onChangeText={onProductText} onFocus={() => setProductSug(true)}
-          placeholder="Начните вводить название…" placeholderTextColor={C.inkSoft} style={styles.input}
-        />
-        {productSug && productMatches.length > 0 && (
-          <View style={styles.sugBox}>
-            {productMatches.map((p) => (
-              <Pressable key={p.id} onPress={() => pickProduct(p)} style={styles.sugRow}>
-                <Text style={styles.sugT}>{p.name}</Text>
-                <Text style={styles.sugMeta}>{p.durationMin} мин{p.price ? ` · ${p.price} ₽` : ""}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <View style={styles.fieldWrap}>
+          <TextInput
+            value={form.productText} onChangeText={onProductText}
+            onFocus={() => { setProductSug(true); setClientSug(false); }}
+            placeholder="Начните вводить название…" placeholderTextColor={C.inkSoft} style={styles.input}
+          />
+          {productSug && productMatches.length > 0 && (
+            <View style={styles.sugBox}>
+              {productMatches.map((p) => (
+                <Pressable key={p.id} onPress={() => pickProduct(p)} style={styles.sugRow}>
+                  <Text style={styles.sugT}>{p.name}</Text>
+                  <Text style={styles.sugMeta}>{p.durationMin} мин{p.price ? ` · ${p.price} ₽` : ""}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
         <View style={styles.rowInputs}>
           <View style={{ flex: 1 }}>
@@ -514,6 +522,7 @@ export default function CalendarScreen({ navigation }) {
             <TextInput
               value={form.time}
               onChangeText={(v) => setForm((f) => ({ ...f, time: maskTime(v) }))}
+              onFocus={() => { setClientSug(false); setProductSug(false); }}
               onBlur={() => setForm((f) => ({ ...f, time: normalizeTime(f.time) }))}
               placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
               style={styles.input}
@@ -658,9 +667,10 @@ const mini = StyleSheet.create({
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 16 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  pickLabel: { fontSize: 11, color: C.inkSoft, marginBottom: 4 },
   toolbar: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  arrow: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center" },
-  arrowT: { fontSize: 20, color: C.primary },
+  edgeArrow: { alignItems: "center", justifyContent: "center" },
+  arrowT: { fontSize: 22, color: C.primary, fontWeight: "600" },
   dateBtn: { flex: 1, height: 40, borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center" },
   dateBtnT: { fontSize: 14, color: C.ink, fontWeight: "600" },
   actionsRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" },
@@ -708,7 +718,15 @@ const styles = StyleSheet.create({
   rowInputs: { flexDirection: "row", gap: 8, alignItems: "center" },
   formError: { fontSize: 12, color: C.accent, marginBottom: 8 },
   clearPeriod: { fontSize: 12, color: C.accent, fontWeight: "600", marginBottom: 8 },
-  sugBox: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12, marginTop: -4, marginBottom: 8, overflow: "hidden" },
+  // Обёртки полей с подсказками: список раскрывается ПОВЕРХ содержимого окна.
+  fieldWrapHigh: { position: "relative", zIndex: 30 },
+  fieldWrap: { position: "relative", zIndex: 20 },
+  sugBox: {
+    position: "absolute", top: 44, left: 0, right: 0, zIndex: 50, elevation: 8,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#24332C", shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
   sugRow: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   sugT: { fontSize: 13, color: C.ink, fontWeight: "600" },
   sugMeta: { fontSize: 11, color: C.inkSoft },
