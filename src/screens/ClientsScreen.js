@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
+import ImportClientsModal from "../components/ImportClientsModal";
 import { getClients, addClient } from "../storage/store";
 
 const EMPTY_FORM = { name: "", age: "", request: "", format: "", phone: "", contactVia: "" };
@@ -29,6 +30,7 @@ export default function ClientsScreen({ navigation, route }) {
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [importOpen, setImportOpen] = useState(false);
 
   const load = useCallback(async () => {
     const data = await getClients();
@@ -110,6 +112,12 @@ export default function ClientsScreen({ navigation, route }) {
         </Card>
       )}
 
+      {!formOpen && (
+        <Pressable onPress={() => setImportOpen(true)}>
+          <Text style={styles.importLink}>📥 Загрузить базу из Excel</Text>
+        </Pressable>
+      )}
+
       {clients.length > 0 && (
         <TextInput
           value={query}
@@ -119,6 +127,12 @@ export default function ClientsScreen({ navigation, route }) {
           style={styles.search}
         />
       )}
+
+      <ImportClientsModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+        onDone={() => { setImportOpen(false); load(); }}
+      />
 
       {clients.length === 0 && !formOpen && (
         <Card style={styles.empty}>
@@ -169,6 +183,7 @@ const styles = StyleSheet.create({
   },
   formActions: { flexDirection: "row", gap: 8, marginTop: 4 },
   formHint: { fontSize: 11, color: C.inkSoft, marginTop: 10, lineHeight: 15 },
+  importLink: { fontSize: 13, color: C.primary, fontWeight: "600", marginBottom: 10 },
   search: {
     backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 12,
