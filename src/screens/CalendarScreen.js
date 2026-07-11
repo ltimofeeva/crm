@@ -10,8 +10,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
 import { Card, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
-  getEvents, addEvent, getClients, getProducts, getSchedule, saveSchedule,
+  getEvents, addEvent, deleteEvent, getClients, getProducts, getSchedule, saveSchedule,
   getBlocks, addBlock, updateBlock, deleteBlock,
+  relinkClientHistoryEvent,
 } from "../storage/store";
 import { confirmAsync } from "../utils/confirm";
 import {
@@ -21,7 +22,7 @@ import MiniCalendar from "../components/MiniCalendar";
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Пн..Вс в терминах getDay()
 const HOUR_H = 56;   // высота часа в пикселях
-const GUTTER = 44;   // ширина колонки времени
+const GUTTER = 48;   // ширина колонки времени
 
 // Обёртка всплывающего окна.
 function Popup({ visible, onClose, title, children }) {
@@ -44,8 +45,10 @@ function Popup({ visible, onClose, title, children }) {
 
 const EMPTY_FORM = { date: "", clientText: "", clientId: null, productText: "", productId: null, time: "", durationMin: "" };
 
-export default function CalendarScreen({ navigation }) {
+export default function CalendarScreen({ navigation, route }) {
   const [startDate, setStartDate] = useState(dateKey(new Date()));
+  // Режим переноса записи: пришли из карточки события.
+  const [resEvent, setResEvent] = useState(null);
   const [events, setEvents] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [clients, setClients] = useState([]);
@@ -75,7 +78,8 @@ export default function CalendarScreen({ navigation }) {
   const [pickerFor, setPickerFor] = useState(null);
 
   const load = useCallback(async () => {
-    setEvents(await getEvents());
+    const evs = await getEvents();
+    setEvents(evs);
     setClients(await getClients());
     setProducts(await getProducts());
     const s = await getSchedule();
@@ -83,8 +87,20 @@ export default function CalendarScreen({ navigation }) {
     setSchedFrom(s.from || "");
     setSchedTo(s.to || "");
     setBlocks(await getBlocks());
-  }, []);
+    // Пришли с параметром переноса — включаем режим и показываем дату записи.
+    const rid = route.params?.rescheduleId;
+    if (rid) {
+      const ev = evs.find((e) => e.id === rid);
+      if (ev) {
+        setResEvent(ev);
+        setStartDate(ev.date);
+      }
+      navigation.setParams({ rescheduleId: undefined });
+    }
+  }, [route.params?.rescheduleId]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const cancelReschedule = () => setResEvent(null);
 
   const days = [startDate, addDays(startDate, 1), addDays(startDate, 2)];
   const todayKey = dateKey(new Date());
@@ -126,7 +142,20 @@ export default function CalendarScreen({ navigation }) {
   // ---------- Запись ----------
 
   const openEventModal = (date) => {
-    setForm({ ...EMPTY_FORM, date: date || startDate });
+    if (resEvent) {
+      // Режим переноса: данные клиента и продукта подставляются автоматически.
+      setForm({
+        date: date || startDate,
+        clientText: resEvent.clientName || resEvent.title,
+        clientId: resEvent.clientId || null,
+        productText: resEvent.productName || "",
+        productId: resEvent.productId || null,
+        time: "",
+        durationMin: String(resEvent.durationMin || ""),
+      });
+    } else {
+      setForm({ ...EMPTY_FORM, date: date || startDate });
+    }
     setFormError("");
     setClientSug(false);
     setProductSug(false);
@@ -177,7 +206,7 @@ export default function CalendarScreen({ navigation }) {
     if (clash) { setFormError(`Это время закрыто (${clash.start}–${clash.end}). Выберите другое.`); return; }
     setFormError("");
     const productName = product?.name || form.productText.trim() || null;
-    await addEvent({
+    const data = {
       date: form.date,
       time: time.padStart(5, "0"),
       durationMin: durM,
@@ -187,7 +216,35 @@ export default function CalendarScreen({ navigation }) {
       productId: product?.id || null,
       productName,
       type: client ? "session" : "other",
-    });
+    };
+
+    // Режим переноса: подтверждаем удаление старой записи и создание новой.
+    if (resEvent) {
+      const who = resEvent.clientName || resEvent.title;
+      const ok = await confirmAsync(
+        "Перенос записи",
+        `Вы хотите удалить запись ${who} с ${showDate(resEvent.date)} ${resEvent.time} и создать новую запись на ${showDate(form.date)} ${data.time}?`,
+        "Да", "Отмена",
+      );
+      if (!ok) return;
+      await deleteEvent(resEvent.id);
+      const newEv = await addEvent({
+        ...data,
+        note: resEvent.note || "",
+        status: resEvent.status || "none",
+      });
+      // Перевешиваем запись в истории клиента на новое событие.
+      if (newEv.clientId) {
+        await relinkClientHistoryEvent(newEv.clientId, resEvent.id, newEv);
+      }
+      setEventModal(false);
+      setForm(EMPTY_FORM);
+      setResEvent(null);
+      load();
+      return;
+    }
+
+    await addEvent(data);
     const newClientName = !client ? form.clientText.trim() : "";
     const newProductName = !product && form.productText.trim() ? form.productText.trim() : "";
     setEventModal(false);
@@ -344,9 +401,26 @@ export default function CalendarScreen({ navigation }) {
           </Pressable>
         </View>
 
+        {resEvent && (
+          <View style={styles.resBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.resTitle}>
+                Перенос: {resEvent.clientName || resEvent.title}
+              </Text>
+              <Text style={styles.resText}>
+                Было: {showDate(resEvent.date)} в {resEvent.time}. Выберите новый
+                день и нажмите «＋ Запись» — данные подставятся автоматически.
+              </Text>
+            </View>
+            <Pressable onPress={cancelReschedule} style={{ padding: 6 }}>
+              <Text style={{ fontSize: 15, color: C.accent }}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
         <View style={styles.actionsRow}>
           <PrimaryButton title="＋ Запись" onPress={() => openEventModal(startDate)} />
-          <PrimaryButton title="Закрыть время" tone="soft" onPress={() => openBlockModal(startDate)} />
+          {!resEvent && <PrimaryButton title="Закрыть время" tone="soft" onPress={() => openBlockModal(startDate)} />}
           <Pressable onPress={() => setStartDate(todayKey)} style={styles.todayBtn}>
             <Text style={styles.todayBtnT}>Сегодня</Text>
           </Pressable>
@@ -365,7 +439,7 @@ export default function CalendarScreen({ navigation }) {
       </View>
 
       {/* Сетка времени */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24, paddingTop: 10 }}>
         <View style={styles.grid}>
           <View style={{ width: GUTTER, height: gridHeight }}>
             {hours.map((m) => (
@@ -393,7 +467,7 @@ export default function CalendarScreen({ navigation }) {
         <MiniCalendar value={startDate} onPick={(iso) => { setStartDate(iso); setDateModal(false); }} />
       </Popup>
 
-      <Popup visible={eventModal} onClose={() => setEventModal(false)} title="Новая запись">
+      <Popup visible={eventModal} onClose={() => setEventModal(false)} title={resEvent ? "Перенос записи" : "Новая запись"}>
         <Text style={styles.label}>Дата</Text>
         <View style={styles.chipsRow}>
           {days.map((d) => (
@@ -498,7 +572,7 @@ export default function CalendarScreen({ navigation }) {
             onChangeText={(v) => setBlockForm((b) => ({ ...b, start: maskTime(v) }))}
             onBlur={() => setBlockForm((b) => ({ ...b, start: normalizeTime(b.start) }))}
             placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
-            style={[styles.input, { flex: 1 }]}
+            style={styles.timeInput}
           />
           <Text style={{ color: C.inkSoft }}>—</Text>
           <TextInput
@@ -506,7 +580,7 @@ export default function CalendarScreen({ navigation }) {
             onChangeText={(v) => setBlockForm((b) => ({ ...b, end: maskTime(v) }))}
             onBlur={() => setBlockForm((b) => ({ ...b, end: normalizeTime(b.end) }))}
             placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
-            style={[styles.input, { flex: 1 }]}
+            style={styles.timeInput}
           />
         </View>
         {blockError ? <Text style={styles.formError}>{blockError}</Text> : null}
@@ -540,7 +614,7 @@ export default function CalendarScreen({ navigation }) {
                 onChangeText={(v) => setSchedule((s) => ({ ...s, start: maskTime(v) }))}
                 onBlur={() => setSchedule((s) => ({ ...s, start: normalizeTime(s.start) }))}
                 placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
-                style={[styles.input, { flex: 1 }]}
+                style={styles.timeInput}
               />
               <Text style={{ color: C.inkSoft }}>—</Text>
               <TextInput
@@ -548,7 +622,7 @@ export default function CalendarScreen({ navigation }) {
                 onChangeText={(v) => setSchedule((s) => ({ ...s, end: maskTime(v) }))}
                 onBlur={() => setSchedule((s) => ({ ...s, end: normalizeTime(s.end) }))}
                 placeholder="--:--" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
-                style={[styles.input, { flex: 1 }]}
+                style={styles.timeInput}
               />
             </View>
             <Text style={styles.label}>Период действия (пусто = бессрочно) — нажмите, чтобы выбрать дату</Text>
@@ -645,6 +719,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
   },
   inputActive: { borderColor: C.primary },
+  // Поля времени в строке «с — до»: сжимаются корректно, текст по центру.
+  timeInput: {
+    flex: 1, minWidth: 0, textAlign: "center",
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    paddingHorizontal: 6, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
+  },
+  resBanner: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    backgroundColor: C.accentSoft, borderRadius: 12, padding: 12, marginBottom: 10,
+  },
+  resTitle: { fontSize: 13, fontWeight: "700", color: C.accent },
+  resText: { fontSize: 12, color: C.ink, lineHeight: 17, marginTop: 2 },
   rowInputs: { flexDirection: "row", gap: 8, alignItems: "center" },
   formError: { fontSize: 12, color: C.accent, marginBottom: 8 },
   clearPeriod: { fontSize: 12, color: C.accent, fontWeight: "600", marginBottom: 8 },

@@ -102,6 +102,25 @@ const STATUS_MOOD = {
   none: "—",
 };
 
+// При переносе записи (старое событие удаляется, создаётся новое)
+// перевешиваем запись в истории клиента на новое событие и обновляем дату.
+export async function relinkClientHistoryEvent(clientId, oldEventId, event) {
+  const clients = await getClients();
+  const next = clients.map((c) => {
+    if (c.id !== clientId) return c;
+    const sessions = (c.sessions || []).map((s) => {
+      if (s.eventId !== oldEventId) return s;
+      const [y, m, d] = (event.date || "").split("-").map(Number);
+      const dateStr = y
+        ? new Date(y, m - 1, d).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })
+        : s.date;
+      return { ...s, eventId: event.id, date: dateStr };
+    });
+    return { ...c, sessions };
+  });
+  await saveClients(next);
+}
+
 export async function syncEventToClientHistory(event) {
   if (!event?.clientId) return;
   const clients = await getClients();
