@@ -7,6 +7,7 @@ import { Card, Tag, PrimaryButton } from "../components/ui";
 import { getClients, addSessionNote } from "../storage/store";
 import { analyzeClient, buildFullContext } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
+import { currentAge, yearsWord } from "../utils/birthday";
 
 const TREND = {
   up: { label: "↑ Динамика положительная", tone: "green" },
@@ -73,7 +74,13 @@ export default function ClientDetailScreen({ route, navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, SERIF]}>{client.name}</Text>
             <Text style={styles.meta}>
-              {[client.age ? `${client.age} лет` : null, client.since ? `с ${client.since}` : null, `${client.sessionsCount || 0} сессий`].filter(Boolean).join(" · ")}
+              {[
+                client.birthDate
+                  ? `🎂 ${client.birthDate}${(() => { const a = currentAge(client.birthDate); return a != null ? ` (${a} ${yearsWord(a)})` : ""; })()}`
+                  : (client.age ? `${client.age} лет` : null),
+                client.since ? `с ${client.since}` : null,
+                `${client.sessionsCount || 0} сессий`,
+              ].filter(Boolean).join(" · ")}
             </Text>
           </View>
           <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>

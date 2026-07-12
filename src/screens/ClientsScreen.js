@@ -5,8 +5,9 @@ import { C, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import ImportClientsModal from "../components/ImportClientsModal";
 import { getClients, addClient } from "../storage/store";
+import { formatBirthDate } from "../utils/birthday";
 
-const EMPTY_FORM = { name: "", age: "", request: "", format: "", phone: "", contactVia: "" };
+const EMPTY_FORM = { name: "", birthDate: "", request: "", format: "", phone: "", contactVia: "" };
 
 // Каналы связи для поля «Связаться в».
 export const CONTACT_CHANNELS = ["Телеграм", "МАКС", "ВК", "СМС", "По телефону"];
@@ -77,7 +78,15 @@ export default function ClientsScreen({ navigation, route }) {
         <Card style={styles.form}>
           <Text style={styles.formTitle}>Новый клиент</Text>
           <TextInput value={form.name} onChangeText={set("name")} placeholder="Имя и фамилия *" placeholderTextColor={C.inkSoft} style={styles.input} />
-          <TextInput value={form.age} onChangeText={set("age")} placeholder="Возраст" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={styles.input} />
+          <TextInput
+            value={form.birthDate}
+            onChangeText={(v) => setForm((f) => ({ ...f, birthDate: formatBirthDate(v) }))}
+            placeholder="Дата рождения: ДД.ММ.ГГГГ"
+            placeholderTextColor={C.inkSoft}
+            keyboardType="numeric"
+            maxLength={10}
+            style={styles.input}
+          />
           <TextInput value={form.request} onChangeText={set("request")} placeholder="Запрос (например: тревожность)" placeholderTextColor={C.inkSoft} style={styles.input} />
           <TextInput value={form.format} onChangeText={set("format")} placeholder="Формат: Онлайн / Кабинет" placeholderTextColor={C.inkSoft} style={styles.input} />
           <TextInput

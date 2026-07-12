@@ -26,7 +26,8 @@ export async function buildFullContext() {
   ]);
 
   const clientList = (clients || []).map((c) => ({
-    имя: c.name, возраст: c.age, запрос: c.request, формат: c.format,
+    имя: c.name, дата_рождения: c.birthDate || undefined, возраст: c.age || undefined,
+    запрос: c.request, формат: c.format,
     сессий: c.sessionsCount, статус: c.status, связь: c.contactVia,
     заметки: (c.sessions || []).map((s) => ({ дата: s.date, номер: s.n, заметка: s.note, динамика: s.mood })),
     контакты_вне_сессий: (c.touches || []).map((t) => ({

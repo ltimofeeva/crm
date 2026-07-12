@@ -52,12 +52,12 @@ export async function saveClients(clients) {
 }
 
 // Добавить нового клиента. Обязательное поле — только имя.
-export async function addClient({ name, age, request, format, phone, contactVia }) {
+export async function addClient({ name, birthDate, request, format, phone, contactVia }) {
   const clients = await getClients();
   const client = {
     id: Date.now(),
     name: name.trim(),
-    age: (age || "").toString().trim(),
+    birthDate: (birthDate || "").toString().trim(),
     request: (request || "").trim(),
     format: (format || "").trim() || "Онлайн",
     phone: (phone || "").trim(),

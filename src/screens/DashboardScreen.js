@@ -13,6 +13,7 @@ import {
 } from "../storage/store";
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
+import { birthdayStatus, yearsWord } from "../utils/birthday";
 
 function todayTitle() {
   const s = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
@@ -40,6 +41,12 @@ export default function DashboardScreen({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const todayEvents = events.filter((e) => e.date === dateKey(new Date()));
+
+  // Дни рождения клиентов: сегодня и в ближайшую неделю.
+  const birthdays = clients
+    .map((c) => ({ c, st: birthdayStatus(c.birthDate) }))
+    .filter((x) => x.st && x.st.days <= 7)
+    .sort((a, b) => a.st.days - b.st.days);
 
   const refreshReminders = async () => {
     if (!isPro) { navigation.navigate("Paywall"); return; }
@@ -102,12 +109,47 @@ export default function DashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.name} numberOfLines={1}>{e.title}</Text>
                 <Text style={styles.meta}>
-                  {[e.productName, e.note ? "есть заметка" : null].filter(Boolean).join(" · ") || "нажмите, чтобы добавить заметку"}
+                  {[e.productName, e.price ? `${e.price} ₽` : null, e.note ? "есть заметка" : null].filter(Boolean).join(" · ") || "нажмите, чтобы добавить заметку"}
                 </Text>
               </View>
               {e.status === "progress" ? <Tag>↑ Прогресс</Tag> : null}
               {e.status === "stable" ? <Tag>→ Стабильно</Tag> : null}
               {e.status === "regress" ? <Tag tone="clay">↓ Регресс</Tag> : null}
+            </Card>
+          ))}
+        </>
+      )}
+
+      {birthdays.length > 0 && (
+        <>
+          <Text style={styles.section}>🎂 ДНИ РОЖДЕНИЯ</Text>
+          {birthdays.map(({ c, st }) => (
+            <Card key={c.id} style={styles.bday}>
+              <Text
+                style={styles.bdayName}
+                onPress={() => navigation.navigate("ClientCard", { id: c.id })}
+              >
+                {c.name} →
+              </Text>
+              <Text style={styles.bdayText}>
+                {st.days === 0
+                  ? "Сегодня день рождения! 🎉"
+                  : `День рождения ${st.dateLabel} (${st.days === 1 ? "завтра" : `через ${st.days} дн.`})`}
+                {st.turns ? ` Исполняется ${st.turns} ${yearsWord(st.turns)}.` : ""}
+              </Text>
+              <View style={{ marginTop: 8, alignSelf: "flex-start" }}>
+                <PrimaryButton
+                  title="Составить поздравление"
+                  tone="soft"
+                  onPress={() => composeMessage({
+                    client: c.name,
+                    reason: st.days === 0
+                      ? "у клиента сегодня день рождения"
+                      : `у клиента день рождения ${st.dateLabel}`,
+                    action: "тёплое личное поздравление с днём рождения, без продаж",
+                  })}
+                />
+              </View>
             </Card>
           ))}
         </>
@@ -192,6 +234,9 @@ const styles = StyleSheet.create({
   remReason: { fontSize: 13, color: C.ink, lineHeight: 18 },
   remAction: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 17 },
   err: { fontSize: 12, color: C.accent, lineHeight: 17 },
+  bday: { padding: 14, marginBottom: 8, backgroundColor: C.accentSoft, borderColor: C.accentSoft },
+  bdayName: { fontSize: 14, fontWeight: "600", color: C.primary, textDecorationLine: "underline" },
+  bdayText: { fontSize: 13, color: C.ink, lineHeight: 18, marginTop: 4 },
   hint: { padding: 14, marginTop: 12 },
   hintText: { fontSize: 13, color: C.ink, lineHeight: 18 },
   hintCta: { fontSize: 11, color: C.primary, marginTop: 4 },
