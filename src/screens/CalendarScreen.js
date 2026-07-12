@@ -43,7 +43,7 @@ function Popup({ visible, onClose, title, children }) {
   );
 }
 
-const EMPTY_FORM = { date: "", clientText: "", clientId: null, productText: "", productId: null, time: "", durationMin: "" };
+const EMPTY_FORM = { date: "", clientText: "", clientId: null, productText: "", productId: null, time: "", durationMin: "", price: "" };
 
 export default function CalendarScreen({ navigation, route }) {
   const [startDate, setStartDate] = useState(dateKey(new Date()));
@@ -152,6 +152,7 @@ export default function CalendarScreen({ navigation, route }) {
         productId: resEvent.productId || null,
         time: "",
         durationMin: String(resEvent.durationMin || ""),
+        price: resEvent.price != null ? String(resEvent.price) : "",
       });
     } else {
       setForm({ ...EMPTY_FORM, date: date || startDate });
@@ -183,11 +184,16 @@ export default function CalendarScreen({ navigation, route }) {
     setForm((f) => ({
       ...f, productText: v, productId: exact?.id || null,
       durationMin: exact ? String(exact.durationMin) : f.durationMin,
+      // Цена подставляется из продукта, но её можно поправить руками.
+      price: exact ? String(exact.price || "") : f.price,
     }));
     setProductSug(true);
   };
   const pickProduct = (p) => {
-    setForm((f) => ({ ...f, productText: p.name, productId: p.id, durationMin: String(p.durationMin) }));
+    setForm((f) => ({
+      ...f, productText: p.name, productId: p.id,
+      durationMin: String(p.durationMin), price: String(p.price || ""),
+    }));
     setProductSug(false);
   };
 
@@ -215,6 +221,10 @@ export default function CalendarScreen({ navigation, route }) {
       clientName: client?.name || null,
       productId: product?.id || null,
       productName,
+      price: (() => {
+        const p = parseInt(String(form.price).replace(/\D/g, ""), 10);
+        return Number.isFinite(p) ? p : (product?.price || null);
+      })(),
       type: client ? "session" : "other",
     };
 
@@ -362,7 +372,11 @@ export default function CalendarScreen({ navigation, route }) {
               <Text style={styles.eventBoxT} numberOfLines={2}>
                 {e.clientName || e.title}
               </Text>
-              {h > 52 && e.productName ? <Text style={styles.eventBoxP} numberOfLines={1}>{e.productName}</Text> : null}
+              {h > 52 && (e.productName || e.price) ? (
+                <Text style={styles.eventBoxP} numberOfLines={1}>
+                  {[e.productName, e.price ? `${e.price} ₽` : null].filter(Boolean).join(" · ")}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -533,6 +547,14 @@ export default function CalendarScreen({ navigation, route }) {
               value={form.durationMin}
               onChangeText={(v) => setForm((f) => ({ ...f, durationMin: v }))}
               placeholder="50" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={styles.input}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Цена, ₽</Text>
+            <TextInput
+              value={form.price}
+              onChangeText={(v) => setForm((f) => ({ ...f, price: v.replace(/\D/g, "") }))}
+              placeholder="0" placeholderTextColor={C.inkSoft} keyboardType="numeric" style={styles.input}
             />
           </View>
         </View>

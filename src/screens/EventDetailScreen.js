@@ -74,7 +74,7 @@ export default function EventDetailScreen({ route, navigation }) {
       <Card style={{ padding: 16 }}>
         <Text style={[styles.title, SERIF]}>{event.title}</Text>
         <Text style={styles.meta}>
-          {fmtDay(event.date)} · {event.time} · {event.durationMin} мин
+          {fmtDay(event.date)} · {event.time} · {event.durationMin} мин{event.price ? ` · ${event.price} ₽` : ""}
         </Text>
         {event.productName ? <View style={{ marginTop: 8 }}><Tag>{event.productName}</Tag></View> : null}
         <View style={{ marginTop: 12, alignSelf: "flex-start" }}>
