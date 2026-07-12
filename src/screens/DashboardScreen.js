@@ -32,11 +32,18 @@ export default function DashboardScreen({ navigation }) {
   const [reminders, setReminders] = useState([]);
   const [remState, setRemState] = useState("idle"); // idle | loading | error
 
-  // Напоминания обновляются сами при открытии вкладки. Чтобы не дёргать ИИ
-  // при каждом переключении вкладок, свежий результат (моложе 15 минут)
-  // используется повторно.
-  const AUTO_REFRESH_MS = 15 * 60 * 1000;
+  // Напоминания обновляются раз в сутки: при первом открытии вкладки после
+  // 3:00 утра. Фоновых задач у приложения нет, поэтому ровно в 3:00 само оно
+  // проснуться не может — обновление срабатывает при первом входе после этого
+  // времени, а до тех пор показывается вчерашний список.
   const refreshing = useRef(false);
+
+  const lastThreeAM = () => {
+    const cutoff = new Date();
+    cutoff.setHours(3, 0, 0, 0);
+    if (Date.now() < cutoff.getTime()) cutoff.setDate(cutoff.getDate() - 1);
+    return cutoff.getTime();
+  };
 
   const load = useCallback(async () => {
     const cls = await getClients();
@@ -48,7 +55,7 @@ export default function DashboardScreen({ navigation }) {
 
     // Автообновление: только с подпиской, без параллельных запросов.
     if (!isPro || refreshing.current || cls.length === 0) return;
-    const stale = Date.now() - (saved.updatedAt || 0) > AUTO_REFRESH_MS;
+    const stale = (saved.updatedAt || 0) < lastThreeAM();
     if (!stale && savedItems.length > 0) return;
     refreshing.current = true;
     // Пока идёт обновление, старые напоминания остаются на экране.
