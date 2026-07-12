@@ -6,7 +6,10 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { C } from "./src/theme";
 import { SubscriptionProvider, useSubscription } from "./src/context/SubscriptionContext";
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
 
+import LoginScreen from "./src/screens/LoginScreen";
+import RegisterScreen from "./src/screens/RegisterScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import ClientsScreen from "./src/screens/ClientsScreen";
@@ -112,12 +115,21 @@ const navTheme = {
   colors: { ...DefaultTheme.colors, background: C.bg, card: C.bg, text: C.ink, primary: C.primary, border: C.line },
 };
 
-export default function App() {
+// Навигация верхнего уровня: пока не вошли — экраны входа/регистрации,
+// после входа — само приложение (с проверкой подписки внутри Root).
+function AppNavigator() {
+  const { user, loading } = useAuth();
+  if (loading) return null; // короткий момент восстановления сессии
+
   return (
-    <SubscriptionProvider>
-      <NavigationContainer theme={navTheme}>
-        <StatusBar style="dark" />
-        <Stack.Navigator>
+    <Stack.Navigator>
+      {!user ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+        </>
+      ) : (
+        <>
           <Stack.Screen name="Root" component={Root} options={{ headerShown: false }} />
           <Stack.Screen
             name="AIChat"
@@ -129,9 +141,22 @@ export default function App() {
             component={PaywallScreen}
             options={{ title: "Подписка", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
           />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SubscriptionProvider>
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <SubscriptionProvider>
+        <NavigationContainer theme={navTheme}>
+          <StatusBar style="dark" />
+          <AppNavigator />
+        </NavigationContainer>
+      </SubscriptionProvider>
+    </AuthProvider>
   );
 }
 

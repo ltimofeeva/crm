@@ -59,6 +59,27 @@ export async function configurePurchases() {
   }
 }
 
+// Привязать покупки к аккаунту пользователя (подписка проверяется «по логину»).
+// В режиме разработки (ключи не заданы) — ничего не делает.
+export async function identifyUser(appUserId) {
+  if (!configured || !appUserId) return;
+  try {
+    await Purchases.logIn(appUserId);
+  } catch (e) {
+    // не блокируем вход из-за ошибки биллинга
+  }
+}
+
+// Отвязать аккаунт при выходе из приложения.
+export async function logOutUser() {
+  if (!configured) return;
+  try {
+    await Purchases.logOut();
+  } catch (e) {
+    // игнорируем
+  }
+}
+
 // Уровень подписки: "dev" (биллинг не настроен — всё открыто),
 // "pro" (Помощник Про), "basic" (Помощник), "none" (нет подписки).
 export async function getSubscriptionTier() {

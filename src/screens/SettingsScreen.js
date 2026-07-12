@@ -12,11 +12,13 @@ import {
 } from "../storage/store";
 import { UNPACK_PROMPT } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
+import { useAuth } from "../context/AuthContext";
 
 const EMPTY_PRODUCT = { name: "", durationMin: "", price: "", about: "" };
 
 export default function SettingsScreen({ navigation, route }) {
   const { billingEnabled, isPro } = useSubscription();
+  const { user, signOut } = useAuth();
   const [products, setProducts] = useState([]);
   const [profile, setProfile] = useState({ activity: "", approach: "", strengths: "" });
   const [prodOpen, setProdOpen] = useState(false);
@@ -60,6 +62,16 @@ export default function SettingsScreen({ navigation, route }) {
   };
 
   const unpack = () => navigation.navigate("AIChat", { preset: UNPACK_PROMPT, unpack: true });
+
+  const logout = async () => {
+    if (await confirmAsync(
+      "Выйти из аккаунта?",
+      "Данные останутся на устройстве. Чтобы снова войти, потребуется логин и пароль.",
+      "Выйти", "Отмена",
+    )) {
+      await signOut();
+    }
+  };
 
   const wipe = async () => {
     if (await confirmAsync(
@@ -180,6 +192,15 @@ export default function SettingsScreen({ navigation, route }) {
           </Text>
         </View>
         <Tag tone={isPro ? "green" : "clay"}>{isPro ? "Активна" : "Нет"}</Tag>
+      </Card>
+
+      <Text style={styles.section}>АККАУНТ</Text>
+      <Card style={{ padding: 14 }}>
+        <Text style={styles.prodName}>{user?.display || "—"}</Text>
+        <Text style={styles.prodMeta}>Вы вошли в этот аккаунт на данном устройстве.</Text>
+        <View style={{ marginTop: 10, alignSelf: "flex-start" }}>
+          <PrimaryButton title="Выйти из аккаунта" tone="soft" onPress={logout} />
+        </View>
       </Card>
 
       <Text style={styles.section}>ДАННЫЕ</Text>
