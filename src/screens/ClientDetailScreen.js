@@ -159,16 +159,27 @@ export default function ClientDetailScreen({ route, navigation }) {
                 </Pressable>
               </View>
             </View>
-            <View style={styles.field}><Text style={styles.fieldL}>Запрос</Text><Text style={styles.fieldV}>{client.request || "—"}</Text></View>
-            <View style={styles.field}>
-              <Text style={styles.fieldL}>Кол-во посещений</Text>
-              <Text style={styles.fieldV}>{client.sessionsCount || 0} {sessionsWord(client.sessionsCount || 0)}</Text>
-            </View>
-            <View style={styles.field}><Text style={styles.fieldL}>Формат</Text><Text style={styles.fieldV}>{client.format || "—"}</Text></View>
-            <View style={styles.field}><Text style={styles.fieldL}>Связаться в</Text><Text style={styles.fieldV}>{client.contactVia || "—"}</Text></View>
-            <View style={styles.field}>
-              <Text style={styles.fieldL}>Контакт</Text>
-              <Text style={styles.fieldV}>{client.phone || "—"}</Text>
+            <View style={styles.fieldsBox}>
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldL}>Запрос:</Text>
+                <Text style={styles.fieldV}>{client.request || "—"}</Text>
+              </View>
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldL}>Кол-во посещений:</Text>
+                <Text style={styles.fieldV}>{client.sessionsCount || 0} {sessionsWord(client.sessionsCount || 0)}</Text>
+              </View>
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldL}>Формат:</Text>
+                <Text style={styles.fieldV}>{client.format || "—"}</Text>
+              </View>
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldL}>Связаться в:</Text>
+                <Text style={styles.fieldV}>{client.contactVia || "—"}</Text>
+              </View>
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldL}>Контакт:</Text>
+                <Text style={styles.fieldV}>{client.phone || "—"}</Text>
+              </View>
               {client.phone ? (
                 <Text style={styles.copyLink} onPress={copyPhone}>
                   {copied ? "Скопировано ✓" : "⧉ Скопировать номер"}
@@ -337,9 +348,10 @@ const styles = StyleSheet.create({
   headTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   title: { fontSize: 20, color: C.ink },
   meta: { fontSize: 12, color: C.inkSoft, marginTop: 2 },
-  field: { backgroundColor: C.bg, borderRadius: 12, padding: 12, marginTop: 8 },
-  fieldL: { fontSize: 11, color: C.inkSoft, marginBottom: 2 },
-  fieldV: { fontSize: 13, color: C.ink },
+  fieldsBox: { backgroundColor: C.bg, borderRadius: 12, padding: 12, marginTop: 8, gap: 6 },
+  fieldRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  fieldL: { fontSize: 13, color: C.inkSoft },
+  fieldV: { flex: 1, fontSize: 13, color: C.ink, fontWeight: "600" },
   copyLink: { fontSize: 12, color: C.primary, fontWeight: "600", marginTop: 6 },
   next: { fontSize: 13, color: C.ink, marginTop: 10 },
   headRight: { flexDirection: "row", alignItems: "center", gap: 8 },
