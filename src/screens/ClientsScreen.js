@@ -6,25 +6,13 @@ import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import ImportClientsModal from "../components/ImportClientsModal";
 import { getClients, addClient } from "../storage/store";
 import { formatBirthDate } from "../utils/birthday";
+import { formatPhone, phoneDigits } from "../utils/phone";
+import { confirmAsync } from "../utils/confirm";
 
 const EMPTY_FORM = { name: "", birthDate: "", request: "", format: "", phone: "", contactVia: "" };
 
 // Каналы связи для поля «Связаться в».
 export const CONTACT_CHANNELS = ["Телеграм", "МАКС", "ВК", "СМС", "По телефону"];
-
-// Маска телефона: +7 (XXX) XXX-XX-XX. Оставляем только цифры и форматируем.
-function formatPhone(value) {
-  let digits = value.replace(/\D/g, "");
-  // Отбрасываем ведущую 7/8 (страна) — она уже в «+7».
-  if (digits.startsWith("7") || digits.startsWith("8")) digits = digits.slice(1);
-  digits = digits.slice(0, 10);
-  if (digits.length === 0) return "";
-  let out = "+7 (" + digits.slice(0, 3);
-  if (digits.length >= 4) out += ") " + digits.slice(3, 6);
-  if (digits.length >= 7) out += "-" + digits.slice(6, 8);
-  if (digits.length >= 9) out += "-" + digits.slice(8, 10);
-  return out;
-}
 
 export default function ClientsScreen({ navigation, route }) {
   const [clients, setClients] = useState([]);
@@ -58,13 +46,34 @@ export default function ClientsScreen({ navigation, route }) {
 
   const save = async () => {
     if (!form.name.trim()) return;
+    // Проверка на дубль по номеру телефона.
+    const digits = phoneDigits(form.phone);
+    if (digits) {
+      const dup = clients.find((c) => phoneDigits(c.phone) === digits);
+      if (dup) {
+        const ok = await confirmAsync(
+          "Такой номер уже есть",
+          `Номер ${form.phone} уже указан у клиента «${dup.name}». Всё равно добавить нового клиента?`,
+          "Добавить", "Отмена",
+        );
+        if (!ok) return;
+      }
+    }
     await addClient(form);
     setForm(EMPTY_FORM);
     setFormOpen(false);
     load();
   };
 
-  const list = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
+  // Поиск: по имени/фамилии и по номеру телефона.
+  const q = query.trim().toLowerCase();
+  const qDigits = q.replace(/\D/g, "");
+  const list = clients.filter((c) => {
+    if (!q) return true;
+    if (c.name.toLowerCase().includes(q)) return true;
+    if (qDigits.length >= 3 && phoneDigits(c.phone).includes(qDigits)) return true;
+    return false;
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
@@ -127,11 +136,11 @@ export default function ClientsScreen({ navigation, route }) {
         </Pressable>
       )}
 
-      {clients.length > 0 && (
+      {clients.length > 0 && !formOpen && (
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Поиск по имени"
+          placeholder="Поиск: имя, фамилия или телефон"
           placeholderTextColor={C.inkSoft}
           style={styles.search}
         />

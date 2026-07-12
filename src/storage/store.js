@@ -72,6 +72,14 @@ export async function addClient({ name, birthDate, request, format, phone, conta
   return client;
 }
 
+// Обновить данные клиента (редактирование карточки).
+export async function updateClient(id, patch) {
+  const clients = await getClients();
+  const next = clients.map((c) => (c.id === id ? { ...c, ...patch } : c));
+  await saveClients(next);
+  return next.find((c) => c.id === id) || null;
+}
+
 // Добавить заметку к сессии конкретного клиента и сохранить.
 export async function addSessionNote(clientId, note) {
   const clients = await getClients();
