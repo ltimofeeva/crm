@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   welcomeTitle: { fontSize: 16, fontWeight: "600", color: C.ink, marginBottom: 8 },
   welcomeText: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
   welcomeCta: { fontSize: 13, color: C.primary, marginTop: 10, fontWeight: "600" },
-  remHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  remHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, marginBottom: 12 },
   remEmpty: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
   reminder: { padding: 14, marginBottom: 8 },
   remTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
