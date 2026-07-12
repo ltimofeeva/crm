@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
   },
   empty: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
-  item: { padding: 14, marginBottom: 24 },
+  item: { padding: 14, marginBottom: 48 },
   itemTitle: { fontSize: 14, fontWeight: "600", color: C.ink, lineHeight: 19 },
   itemSub: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 16 },
   itemActions: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },

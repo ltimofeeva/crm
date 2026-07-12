@@ -172,6 +172,8 @@ export default function DashboardScreen({ navigation }) {
               </View>
             </Card>
           ))}
+          {/* Отступ ~1,5 см до следующего раздела. */}
+          <View style={{ height: 48 }} />
         </>
       )}
 
