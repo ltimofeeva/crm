@@ -5,11 +5,19 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import Anthropic from "@anthropic-ai/sdk";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());               // для продакшена ограничьте origin вашим доменом
 app.use(express.json({ limit: "1mb" }));
+
+// Отдаём собранное веб-приложение (папка public), чтобы его можно было
+// открыть по адресу сервера и добавить «на экран Домой» как иконку.
+app.use(express.static(path.join(__dirname, "public")));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
@@ -41,6 +49,15 @@ app.post("/api/chat", async (req, res) => {
     console.error("chat error:", e?.message || e);
     res.status(500).json({ error: "AI request failed" });
   }
+});
+
+// SPA-фолбэк: любые остальные GET-адреса отдают index.html приложения
+// (кроме API и проверки живости).
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+  if (req.path.startsWith("/api") || req.path === "/health") return next();
+  const indexPath = path.join(__dirname, "public", "index.html");
+  res.sendFile(indexPath, (err) => { if (err) next(); });
 });
 
 const PORT = process.env.PORT || 8787;
