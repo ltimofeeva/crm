@@ -14,12 +14,13 @@ import * as XLSX from "xlsx";
 import { C } from "../theme";
 import { PrimaryButton } from "./ui";
 import { getClients, saveClients } from "../storage/store";
+import { normalizeBirthDate } from "../utils/birthday";
 
 // Поля приложения, которые можно заполнить из файла.
 const FIELDS = [
   { key: "name", label: "Имя клиента *", guess: /фио|имя|клиент|name/i },
   { key: "phone", label: "Телефон", guess: /тел|phone|номер/i },
-  { key: "age", label: "Возраст", guess: /возраст|age|лет/i },
+  { key: "birthDate", label: "Дата рождения", guess: /рожд|birth|\bдр\b/i },
   { key: "request", label: "Запрос / проблема", guess: /запрос|проблем|тема|жалоб/i },
   { key: "format", label: "Формат (онлайн/кабинет)", guess: /формат|format/i },
   { key: "contactVia", label: "Связаться в", guess: /связ|канал|мессендж|telegram|телеграм/i },
@@ -45,9 +46,11 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
   const [rows, setRows] = useState([]);
   const [mapping, setMapping] = useState({});
   const [report, setReport] = useState(null);
+  // Какой из выпадающих списков колонок сейчас раскрыт.
+  const [openField, setOpenField] = useState(null);
 
   const reset = () => {
-    setStage("pick"); setError(""); setHeaders([]); setRows([]); setMapping({}); setReport(null);
+    setStage("pick"); setError(""); setHeaders([]); setRows([]); setMapping({}); setReport(null); setOpenField(null);
   };
 
   const close = () => { reset(); onClose(); };
@@ -94,13 +97,15 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
     }
   };
 
-  const setField = (fieldKey, colIndex) => {
+  // Выбор колонки в выпадающем списке (null — «не заполнять»).
+  const chooseColumn = (fieldKey, colIndex) => {
     setMapping((m) => {
       const next = { ...m };
-      if (next[fieldKey] === colIndex) delete next[fieldKey];
+      if (colIndex === null) delete next[fieldKey];
       else next[fieldKey] = colIndex;
       return next;
     });
+    setOpenField(null);
   };
 
   const cell = (row, key) => {
@@ -144,7 +149,7 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
         imported.push({
           id: Date.now() + ri,
           name,
-          age: cell(row, "age").replace(/\D/g, "").slice(0, 3),
+          birthDate: normalizeBirthDate(cell(row, "birthDate")),
           request: cell(row, "request"),
           format: cell(row, "format") || "Онлайн",
           phone: cell(row, "phone"),
@@ -194,30 +199,49 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
             {stage === "map" && (
               <>
                 <Text style={styles.text}>
-                  Найдено строк: {rows.length}. Соотнесите поля приложения с
-                  колонками файла (серым — пример из первой строки):
+                  Найдено строк: {rows.length}. Проверьте, из какой колонки файла
+                  заполняется каждое поле (серым под полем — пример из первой строки):
                 </Text>
                 {FIELDS.map((f) => (
-                  <View key={f.key} style={styles.fieldBlock}>
-                    <Text style={styles.fieldLabel}>{f.label}</Text>
-                    <View style={styles.chips}>
+                  <View key={f.key} style={[styles.mapRow, openField === f.key && { zIndex: 50 }]}>
+                    <Text style={styles.mapLabel}>{f.label}</Text>
+                    <View style={styles.mapRight}>
                       <Pressable
-                        onPress={() => setField(f.key, mapping[f.key])}
-                        style={[styles.chip, mapping[f.key] === undefined && styles.chipOn]}
+                        onPress={() => setOpenField(openField === f.key ? null : f.key)}
+                        style={[styles.select, openField === f.key && styles.selectOpen]}
                       >
-                        <Text style={[styles.chipT, mapping[f.key] === undefined && styles.chipTOn]}>—</Text>
+                        <Text
+                          style={[styles.selectT, mapping[f.key] === undefined && styles.selectPlaceholder]}
+                          numberOfLines={1}
+                        >
+                          {mapping[f.key] !== undefined ? headers[mapping[f.key]] : "Выберите колонку"}
+                        </Text>
+                        <Text style={styles.selectArrow}>{openField === f.key ? "▴" : "▾"}</Text>
                       </Pressable>
-                      {headers.map((h, i) => (
-                        <Pressable key={i} onPress={() => setField(f.key, i)} style={[styles.chip, mapping[f.key] === i && styles.chipOn]}>
-                          <Text style={[styles.chipT, mapping[f.key] === i && styles.chipTOn]} numberOfLines={1}>{h}</Text>
-                        </Pressable>
-                      ))}
+                      {openField === f.key && (
+                        <View style={styles.options}>
+                          <ScrollView style={{ maxHeight: 190 }} keyboardShouldPersistTaps="handled">
+                            <Pressable onPress={() => chooseColumn(f.key, null)} style={styles.option}>
+                              <Text style={[styles.optionT, { color: C.inkSoft }]}>— не заполнять</Text>
+                            </Pressable>
+                            {headers.map((h, i) => (
+                              <Pressable
+                                key={i}
+                                onPress={() => chooseColumn(f.key, i)}
+                                style={[styles.option, mapping[f.key] === i && styles.optionOn]}
+                              >
+                                <Text style={[styles.optionT, mapping[f.key] === i && styles.optionTOn]} numberOfLines={1}>{h}</Text>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      )}
+                      {mapping[f.key] !== undefined && preview.length > 0 ? (
+                        <Text style={styles.example} numberOfLines={1}>
+                          Пример: {String(preview[mapping[f.key]] ?? "").trim() || "(пусто)"}
+                        </Text>
+                      ) : null}
                     </View>
-                    {mapping[f.key] !== undefined && preview.length > 0 ? (
-                      <Text style={styles.example} numberOfLines={1}>
-                        Пример: {String(preview[mapping[f.key]] ?? "").trim() || "(пусто)"}
-                      </Text>
-                    ) : null}
                   </View>
                 ))}
                 <PrimaryButton title={`Импортировать ${rows.length} строк`} tone="accent" onPress={runImport} />
@@ -259,13 +283,28 @@ const styles = StyleSheet.create({
   head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
   title: { fontSize: 16, fontWeight: "700", color: C.ink },
   text: { fontSize: 13, color: C.inkSoft, lineHeight: 19, marginBottom: 12 },
-  fieldBlock: { marginBottom: 12 },
-  fieldLabel: { fontSize: 12, fontWeight: "600", color: C.ink, marginBottom: 6 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, maxWidth: 160 },
-  chipOn: { backgroundColor: C.primary, borderColor: C.primary },
-  chipT: { fontSize: 11, color: C.ink },
-  chipTOn: { color: C.white },
+  mapRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  mapLabel: { width: 130, fontSize: 12, fontWeight: "600", color: C.ink, paddingTop: 10, lineHeight: 16 },
+  mapRight: { flex: 1 },
+  select: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 9, gap: 6,
+  },
+  selectOpen: { borderColor: C.primary },
+  selectT: { flex: 1, fontSize: 13, color: C.ink },
+  selectPlaceholder: { color: C.inkSoft },
+  selectArrow: { fontSize: 11, color: C.inkSoft },
+  options: {
+    position: "absolute", top: 42, left: 0, right: 0, zIndex: 60,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12,
+    shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 6, overflow: "hidden",
+  },
+  option: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
+  optionOn: { backgroundColor: C.primarySoft },
+  optionT: { fontSize: 13, color: C.ink },
+  optionTOn: { color: C.primary, fontWeight: "600" },
   example: { fontSize: 11, color: C.inkSoft, marginTop: 4, fontStyle: "italic" },
   doneTitle: { fontSize: 16, fontWeight: "700", color: C.primary, marginBottom: 8 },
   error: { fontSize: 12, color: C.accent, marginTop: 8, lineHeight: 17 },
