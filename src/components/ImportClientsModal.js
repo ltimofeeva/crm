@@ -25,6 +25,7 @@ const FIELDS = [
   { key: "format", label: "Формат (онлайн/кабинет)", guess: /формат|format/i },
   { key: "contactVia", label: "Связаться в", guess: /связ|канал|мессендж|telegram|телеграм/i },
   { key: "notes", label: "История посещений / заметки", guess: /замет|истор|коммент|посещени(я|й)\s|визит.*(описан|коммент)|notes/i },
+  { key: "products", label: "Какие продукты посещал", guess: /продукт|услуг|абонемент/i },
   { key: "count", label: "Кол-во посещений (число)", guess: /кол-?во|количество|счетчик|счётчик|сессий|visits|посещений/i },
 ];
 
@@ -135,6 +136,11 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
         const noteLines = notesRaw
           ? notesRaw.split(/\r?\n|;/).map((s) => s.trim()).filter(Boolean)
           : [];
+        // Посещённые продукты: если дат нет — хотя бы список того, что клиент
+        // проходил, отдельной записью в истории.
+        const productsRaw = cell(row, "products");
+        if (productsRaw) noteLines.push(`Посещал(а) продукты: ${productsRaw}`);
+
         const sessions = noteLines.map((note, i) => ({
           n: noteLines.length - i, // старые ниже, свежие сверху
           date: "",
@@ -238,7 +244,12 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
                       )}
                       {mapping[f.key] !== undefined && preview.length > 0 ? (
                         <Text style={styles.example} numberOfLines={1}>
-                          Пример: {String(preview[mapping[f.key]] ?? "").trim() || "(пусто)"}
+                          Пример: {(() => {
+                            const raw = String(preview[mapping[f.key]] ?? "").trim();
+                            // Excel хранит даты числом — показываем уже как дату.
+                            if (f.key === "birthDate") return normalizeBirthDate(raw) || raw || "(пусто)";
+                            return raw || "(пусто)";
+                          })()}
                         </Text>
                       ) : null}
                     </View>
