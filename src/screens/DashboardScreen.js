@@ -1,7 +1,7 @@
 // «Сегодня»: дата, записи на сегодня (нажатие — карточка события с заметкой
 // и статусом), напоминания от ИИ (кому пора написать) и вход в ассистента.
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { C, SERIF } from "../theme";
@@ -32,12 +32,39 @@ export default function DashboardScreen({ navigation }) {
   const [reminders, setReminders] = useState([]);
   const [remState, setRemState] = useState("idle"); // idle | loading | error
 
+  // Напоминания обновляются сами при открытии вкладки. Чтобы не дёргать ИИ
+  // при каждом переключении вкладок, свежий результат (моложе 15 минут)
+  // используется повторно.
+  const AUTO_REFRESH_MS = 15 * 60 * 1000;
+  const refreshing = useRef(false);
+
   const load = useCallback(async () => {
-    setClients(await getClients());
+    const cls = await getClients();
+    setClients(cls);
     setEvents(await getEvents());
     const saved = await getReminders();
-    setReminders(saved.items || []);
-  }, []);
+    const savedItems = saved.items || [];
+    setReminders(savedItems);
+
+    // Автообновление: только с подпиской, без параллельных запросов.
+    if (!isPro || refreshing.current || cls.length === 0) return;
+    const stale = Date.now() - (saved.updatedAt || 0) > AUTO_REFRESH_MS;
+    if (!stale && savedItems.length > 0) return;
+    refreshing.current = true;
+    // Пока идёт обновление, старые напоминания остаются на экране.
+    setRemState(savedItems.length ? "silent" : "loading");
+    try {
+      const system = await buildFullContext();
+      const items = await fetchReminders(system);
+      setReminders(items);
+      await saveReminders(items);
+      setRemState("idle");
+    } catch (e) {
+      setRemState(savedItems.length ? "idle" : "error");
+    } finally {
+      refreshing.current = false;
+    }
+  }, [isPro]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const todayEvents = events.filter((e) => e.date === dateKey(new Date()));
@@ -47,20 +74,6 @@ export default function DashboardScreen({ navigation }) {
     .map((c) => ({ c, st: birthdayStatus(c.birthDate) }))
     .filter((x) => x.st && x.st.days <= 7)
     .sort((a, b) => a.st.days - b.st.days);
-
-  const refreshReminders = async () => {
-    if (!isPro) { navigation.navigate("Paywall"); return; }
-    setRemState("loading");
-    try {
-      const system = await buildFullContext();
-      const items = await fetchReminders(system);
-      setReminders(items);
-      await saveReminders(items);
-      setRemState("idle");
-    } catch (e) {
-      setRemState("error");
-    }
-  };
 
   const composeMessage = (r) => {
     navigation.navigate("AIChat", { preset: messagePreset(r) });
@@ -159,25 +172,36 @@ export default function DashboardScreen({ navigation }) {
         <>
           <View style={styles.remHead}>
             <Text style={styles.section}>НАПОМИНАНИЯ</Text>
-            <PrimaryButton
-              title={remState === "loading" ? "Анализирую…" : "Обновить"}
-              tone="soft"
-              onPress={remState === "loading" ? undefined : refreshReminders}
-            />
+            {remState === "silent" && <Text style={styles.remUpdating}>обновляю…</Text>}
           </View>
 
           {remState === "loading" && (
-            <Card style={{ padding: 16, alignItems: "center" }}><ActivityIndicator color={C.primary} /></Card>
+            <Card style={{ padding: 16, alignItems: "center" }}>
+              <ActivityIndicator color={C.primary} />
+              <Text style={styles.remEmpty}>Ассистент разбирает базу клиентов…</Text>
+            </Card>
           )}
           {remState === "error" && (
-            <Card style={{ padding: 14 }}><Text style={styles.err}>Не удалось получить напоминания. Проверьте интернет и попробуйте ещё раз.</Text></Card>
+            <Card style={{ padding: 14 }}><Text style={styles.err}>Не удалось получить напоминания. Проверьте интернет — попробую снова, когда вы вернётесь на эту вкладку.</Text></Card>
           )}
-          {remState !== "loading" && reminders.length === 0 && (
+          {remState === "idle" && reminders.length === 0 && isPro && (
             <Card style={{ padding: 14 }}>
               <Text style={styles.remEmpty}>
-                Нажмите «Обновить» — ассистент разберёт клиентов на горячих,
-                тёплых и холодных и подскажет, с кем пора связаться и что предложить.
+                Ассистент сам разберёт клиентов на горячих, тёплых и холодных и
+                подскажет, с кем пора связаться. Добавьте клиентов с заметками —
+                и напоминания появятся здесь.
               </Text>
+            </Card>
+          )}
+          {!isPro && reminders.length === 0 && (
+            <Card style={{ padding: 14 }}>
+              <Text style={styles.remEmpty}>
+                Напоминания, с кем связаться и что предложить, составляет
+                ИИ-ассистент — это часть подписки «Помощник Про».
+              </Text>
+              <View style={{ marginTop: 10, alignSelf: "flex-start" }}>
+                <PrimaryButton title="Подробнее о подписке" tone="soft" onPress={() => navigation.navigate("Paywall")} />
+              </View>
             </Card>
           )}
           {remState !== "loading" && reminders.map((r, i) => (
@@ -225,6 +249,7 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
   welcomeCta: { fontSize: 13, color: C.primary, marginTop: 10, fontWeight: "600" },
   remHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, marginBottom: 12 },
+  remUpdating: { fontSize: 11, color: C.inkSoft, fontStyle: "italic" },
   remEmpty: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
   reminder: { padding: 14, marginBottom: 8 },
   remTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
