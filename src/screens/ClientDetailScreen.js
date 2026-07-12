@@ -137,7 +137,12 @@ export default function ClientDetailScreen({ route, navigation }) {
                     : (client.age ? `${client.age} лет` : "")}
                 </Text>
               </View>
-              <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
+              <View style={styles.headRight}>
+                <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
+                <Pressable onPress={openEdit} style={styles.editBtn} hitSlop={8}>
+                  <Text style={styles.editBtnT}>✎</Text>
+                </Pressable>
+              </View>
             </View>
             <View style={styles.field}><Text style={styles.fieldL}>Запрос</Text><Text style={styles.fieldV}>{client.request || "—"}</Text></View>
             <View style={styles.field}>
@@ -156,7 +161,6 @@ export default function ClientDetailScreen({ route, navigation }) {
               ) : null}
             </View>
             <Text style={styles.next}>Следующая запись: {nextEvent ? fmtNext(nextEvent) : "—"}</Text>
-            <Text style={styles.editLink} onPress={openEdit}>✎ Редактировать карточку</Text>
           </>
         ) : (
           <>
@@ -323,7 +327,12 @@ const styles = StyleSheet.create({
   fieldV: { fontSize: 13, color: C.ink },
   copyLink: { fontSize: 12, color: C.primary, fontWeight: "600", marginTop: 6 },
   next: { fontSize: 13, color: C.ink, marginTop: 10 },
-  editLink: { fontSize: 13, color: C.primary, fontWeight: "600", marginTop: 10 },
+  headRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  editBtn: {
+    width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center",
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
+  },
+  editBtnT: { fontSize: 14, color: C.primary },
   editTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
   input: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
