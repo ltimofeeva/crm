@@ -4,7 +4,8 @@ import { ScrollView, View, Text, TextInput, StyleSheet, ActivityIndicator, Press
 import { C, SERIF } from "../theme";
 import * as Clipboard from "expo-clipboard";
 import { Card, Tag, PrimaryButton } from "../components/ui";
-import { getClients, getEvents, addSessionNote, updateClient } from "../storage/store";
+import { getClients, getEvents, addSessionNote, updateClient, deleteClient } from "../storage/store";
+import { confirmAsync } from "../utils/confirm";
 import { analyzeClient, buildFullContext } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 import { currentAge, yearsWord, formatBirthDate } from "../utils/birthday";
@@ -123,6 +124,17 @@ export default function ClientDetailScreen({ route, navigation }) {
 
   const setE = (key) => (v) => setEditForm((f) => ({ ...f, [key]: v }));
 
+  const removeClient = async () => {
+    const ok = await confirmAsync(
+      "Удаление клиента",
+      `Вы действительно хотите удалить клиента ${client.name}? История сессий и журнал контактов будут удалены безвозвратно.`,
+      "Удалить", "Отмена",
+    );
+    if (!ok) return;
+    await deleteClient(client.id);
+    navigation.goBack();
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <Card style={styles.head}>
@@ -141,6 +153,9 @@ export default function ClientDetailScreen({ route, navigation }) {
                 <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
                 <Pressable onPress={openEdit} style={styles.editBtn} hitSlop={8}>
                   <Text style={styles.editBtnT}>✎</Text>
+                </Pressable>
+                <Pressable onPress={removeClient} style={[styles.editBtn, styles.delBtn]} hitSlop={8}>
+                  <Text style={styles.delBtnT}>🗑</Text>
                 </Pressable>
               </View>
             </View>
@@ -333,6 +348,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
   },
   editBtnT: { fontSize: 14, color: C.primary },
+  delBtn: { backgroundColor: C.accentSoft, borderColor: C.accentSoft },
+  delBtnT: { fontSize: 13 },
   editTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
   input: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,

@@ -72,6 +72,12 @@ export async function addClient({ name, birthDate, request, format, phone, conta
   return client;
 }
 
+// Удалить клиента вместе с его историей и журналом контактов.
+export async function deleteClient(id) {
+  const clients = await getClients();
+  await saveClients(clients.filter((c) => c.id !== id));
+}
+
 // Обновить данные клиента (редактирование карточки).
 export async function updateClient(id, patch) {
   const clients = await getClients();
