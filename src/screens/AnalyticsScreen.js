@@ -64,7 +64,9 @@ export default function AnalyticsScreen({ navigation }) {
   const now = new Date();
   const monthPrefix = dateKey(now).slice(0, 7); // ГГГГ-ММ
   const todayK = dateKey(now);
-  const priceOf = (e) => products.find((p) => p.id === e.productId)?.price || 0;
+  // Цена берётся из самой записи (её можно править при создании),
+  // а для старых записей — из продукта.
+  const priceOf = (e) => e.price ?? (products.find((p) => p.id === e.productId)?.price || 0);
 
   // Финансы: прошедшие события этого месяца с продуктами.
   const doneThisMonth = events.filter((e) => e.date.startsWith(monthPrefix) && e.date <= todayK && e.type === "session");
@@ -149,7 +151,7 @@ export default function AnalyticsScreen({ navigation }) {
               <Text style={styles.infoWarn}>Сейчас продукты не заполнены — доход считать не из чего.</Text>
             )}
           </Card>
-          <PrimaryButton title="Обсудить финансы с ИИ" onPress={askFinance} />
+          <View style={styles.aiBtn}><PrimaryButton title="Обсудить финансы с ИИ" onPress={askFinance} /></View>
         </>
       )}
 
@@ -163,7 +165,7 @@ export default function AnalyticsScreen({ navigation }) {
               Записывайте все встречи в календарь — и картина будет честной.
             </Text>
           </Card>
-          <PrimaryButton title="Обсудить загруженность с ИИ" onPress={askLoad} />
+          <View style={styles.aiBtn}><PrimaryButton title="Обсудить загруженность с ИИ" onPress={askLoad} /></View>
         </>
       )}
 
@@ -178,10 +180,12 @@ export default function AnalyticsScreen({ navigation }) {
             </Text>
           </Card>
 
-          <PrimaryButton
-            title={remState === "loading" ? "Анализирую…" : "Проанализировать продажи"}
-            onPress={remState === "loading" ? undefined : refreshSales}
-          />
+          <View style={styles.aiBtn}>
+            <PrimaryButton
+              title={remState === "loading" ? "Анализирую…" : "Проанализировать продажи"}
+              onPress={remState === "loading" ? undefined : refreshSales}
+            />
+          </View>
 
           {remState === "loading" && (
             <Card style={{ padding: 16, alignItems: "center", marginTop: 12 }}>
@@ -245,6 +249,7 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 13, fontWeight: "600", color: C.ink, marginBottom: 4 },
   infoText: { fontSize: 12, color: C.inkSoft, lineHeight: 17 },
   infoWarn: { fontSize: 12, color: C.accent, marginTop: 6 },
+  aiBtn: { marginBottom: 20 },
   hint: { padding: 14, marginTop: 12 },
   hintText: { fontSize: 12, color: C.inkSoft, lineHeight: 17 },
   saleCard: { padding: 14, marginTop: 8 },

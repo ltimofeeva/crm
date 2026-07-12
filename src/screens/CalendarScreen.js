@@ -310,7 +310,7 @@ export default function CalendarScreen({ navigation, route }) {
 
   const removeBlock = async () => {
     if (!blockEditId) return;
-    if (await confirmAsync("Открыть это время?", "Серая плашка будет удалена.", "Открыть", "Отмена")) {
+    if (await confirmAsync("Удаление", "Вы действительно хотите удалить событие?", "Удалить", "Отмена")) {
       await deleteBlock(blockEditId);
       setBlockModal(false);
       load();
