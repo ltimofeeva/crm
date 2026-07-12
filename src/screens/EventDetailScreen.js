@@ -66,7 +66,10 @@ export default function EventDetailScreen({ route, navigation }) {
   // Перенос: открываем календарь в режиме переноса — специалист листает
   // даты, жмёт «＋ Запись», данные подставляются автоматически.
   const goReschedule = () => {
-    navigation.navigate("Root", { screen: "CalendarTab", params: { rescheduleId: id } });
+    navigation.navigate("CalendarTab", {
+      screen: "CalendarHome",
+      params: { rescheduleId: id },
+    });
   };
 
   return (

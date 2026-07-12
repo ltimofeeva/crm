@@ -21,12 +21,50 @@ import EventDetailScreen from "./src/screens/EventDetailScreen";
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Общие настройки шапки для стеков внутри вкладок.
+const stackOptions = {
+  headerShown: true, headerTintColor: C.ink,
+  headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false,
+};
+
 // Стек для вкладки «Клиенты»: список + карточка клиента.
 function ClientsStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true, headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}>
+    <Stack.Navigator screenOptions={stackOptions}>
       <Stack.Screen name="ClientsList" component={ClientsScreen} options={{ title: "Клиенты", headerShown: false }} />
       <Stack.Screen name="ClientDetail" component={ClientDetailScreen} options={{ title: "Карта клиента" }} />
+    </Stack.Navigator>
+  );
+}
+
+// «Сегодня»: лента дня + событие и карточка клиента открываются ПОВЕРХ,
+// не пряча нижнее меню.
+function TodayStack() {
+  return (
+    <Stack.Navigator screenOptions={stackOptions}>
+      <Stack.Screen name="TodayHome" component={DashboardScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: "Событие" }} />
+      <Stack.Screen name="ClientCard" component={ClientDetailScreen} options={{ title: "Карта клиента" }} />
+    </Stack.Navigator>
+  );
+}
+
+// «Календарь»: сетка + карточка события.
+function CalendarStack() {
+  return (
+    <Stack.Navigator screenOptions={stackOptions}>
+      <Stack.Screen name="CalendarHome" component={CalendarScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: "Событие" }} />
+    </Stack.Navigator>
+  );
+}
+
+// «Аналитика»: отчёты + карточка клиента из напоминаний о продажах.
+function AnalyticsStack() {
+  return (
+    <Stack.Navigator screenOptions={stackOptions}>
+      <Stack.Screen name="AnalyticsHome" component={AnalyticsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ClientCard" component={ClientDetailScreen} options={{ title: "Карта клиента" }} />
     </Stack.Navigator>
   );
 }
@@ -49,11 +87,11 @@ function Tabs() {
         ),
       })}
     >
-      <Tab.Screen name="Today" component={DashboardScreen} options={{ title: "Сегодня" }} />
-      <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: "Календарь" }} />
+      <Tab.Screen name="Today" component={TodayStack} options={{ title: "Сегодня" }} />
+      <Tab.Screen name="CalendarTab" component={CalendarStack} options={{ title: "Календарь" }} />
       <Tab.Screen name="Clients" component={ClientsStack} options={{ title: "Клиенты" }} />
       <Tab.Screen name="Content" component={ContentScreen} options={{ title: "Контент" }} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ title: "Аналитика" }} />
+      <Tab.Screen name="Analytics" component={AnalyticsStack} options={{ title: "Аналитика" }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Ещё" }} />
     </Tab.Navigator>
   );
@@ -90,16 +128,6 @@ export default function App() {
             name="Paywall"
             component={PaywallScreen}
             options={{ title: "Подписка", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
-          />
-          <Stack.Screen
-            name="EventDetail"
-            component={EventDetailScreen}
-            options={{ title: "Событие", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
-          />
-          <Stack.Screen
-            name="ClientCard"
-            component={ClientDetailScreen}
-            options={{ title: "Карта клиента", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>
