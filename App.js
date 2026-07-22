@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { C } from "./src/theme";
 import { SubscriptionProvider, useSubscription } from "./src/context/SubscriptionContext";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import TabIcon from "./src/components/TabIcon";
 
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
@@ -72,10 +73,6 @@ function AnalyticsStack() {
   );
 }
 
-const TAB_ICONS = {
-  Today: "◎", CalendarTab: "▦", Clients: "☺", Content: "✎", Analytics: "▤", Settings: "⚙",
-};
-
 function Tabs() {
   return (
     <Tab.Navigator
@@ -83,10 +80,10 @@ function Tabs() {
         headerShown: false,
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.inkSoft,
-        tabBarStyle: { backgroundColor: C.white, borderTopColor: C.line, height: 60, paddingBottom: 8, paddingTop: 6 },
-        tabBarLabelStyle: { fontSize: 10 },
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 17, color: focused ? C.primary : C.inkSoft }}>{TAB_ICONS[route.name]}</Text>
+        tabBarStyle: { backgroundColor: C.white, borderTopColor: C.line, height: 64, paddingBottom: 8, paddingTop: 6 },
+        tabBarLabelStyle: { fontSize: 9.5, marginTop: 1 },
+        tabBarIcon: ({ color }) => (
+          <TabIcon route={route.name} color={color} size={23} />
         ),
       })}
     >
