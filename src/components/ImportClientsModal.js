@@ -41,7 +41,7 @@ async function readWorkbook(asset) {
 }
 
 export default function ImportClientsModal({ visible, onClose, onDone }) {
-  const [stage, setStage] = useState("pick"); // pick | map | importing | done
+  const [stage, setStage] = useState("pick"); // pick | reading | map | importing | done
   const [error, setError] = useState("");
   const [headers, setHeaders] = useState([]);
   const [rows, setRows] = useState([]);
@@ -69,18 +69,24 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
         copyToCacheDirectory: true,
       });
       if (res.canceled || !res.assets?.length) return;
+      // Сразу показываем индикатор «Читаю файл…» и даём интерфейсу его
+      // отрисовать, прежде чем начать тяжёлый разбор (иначе на вебе экран
+      // «замирает» до касания).
+      setStage("reading");
+      await new Promise((r) => setTimeout(r, 50));
+
       const wb = await readWorkbook(res.assets[0]);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
       const nonEmpty = data.filter((r) => r.some((c) => String(c).trim() !== ""));
-      if (nonEmpty.length === 0) { setError("Файл пустой — в первой таблице нет данных."); return; }
+      if (nonEmpty.length === 0) { setError("Файл пустой — в первой таблице нет данных."); setStage("pick"); return; }
 
       // Первая строка — заголовки, если в ней есть буквы.
       const first = nonEmpty[0].map((c) => String(c).trim());
       const looksLikeHeader = first.some((c) => /[a-zа-яё]/i.test(c)) && !first.some((c) => /^\+?\d[\d\s()-]{6,}$/.test(c));
       const cols = looksLikeHeader ? first : first.map((_, i) => `Колонка ${i + 1}`);
       const body = looksLikeHeader ? nonEmpty.slice(1) : nonEmpty;
-      if (body.length === 0) { setError("В файле только заголовки — нет строк с клиентами."); return; }
+      if (body.length === 0) { setError("В файле только заголовки — нет строк с клиентами."); setStage("pick"); return; }
 
       // Автоугадывание сопоставления по названиям колонок.
       const auto = {};
@@ -95,6 +101,7 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
       setStage("map");
     } catch (e) {
       setError("Не удалось прочитать файл. Убедитесь, что это .xlsx, .xls или .csv.");
+      setStage("pick");
     }
   };
 
@@ -200,6 +207,16 @@ export default function ImportClientsModal({ visible, onClose, onDone }) {
                 </Text>
                 <PrimaryButton title="Выбрать файл" onPress={pickFile} />
               </>
+            )}
+
+            {stage === "reading" && (
+              <View style={{ alignItems: "center", padding: 24 }}>
+                <ActivityIndicator color={C.primary} />
+                <Text style={[styles.text, { marginTop: 12, marginBottom: 0 }]}>Читаю файл…</Text>
+                <Text style={[styles.text, { marginTop: 4, marginBottom: 0, fontSize: 12 }]}>
+                  Это может занять несколько секунд для большой базы.
+                </Text>
+              </View>
             )}
 
             {stage === "map" && (
