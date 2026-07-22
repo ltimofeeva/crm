@@ -160,7 +160,7 @@ const head = `
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ExpertOS" />
   `;
 if (!html.includes("apple-mobile-web-app-title")) {
@@ -172,7 +172,7 @@ html = html.replace(/<title>[\s\S]*?<\/title>/, "<title>ExpertOS</title>");
 // Запрет авто-зума при вводе в поля на iOS (страница не «приближается»).
 html = html.replace(
   /<meta name="viewport"[^>]*>/,
-  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />',
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />',
 );
 
 fs.writeFileSync(htmlPath, html);
