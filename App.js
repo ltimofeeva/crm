@@ -81,7 +81,7 @@ function Tabs() {
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.inkSoft,
         tabBarStyle: { backgroundColor: C.white, borderTopColor: C.line, height: 64, paddingBottom: 8, paddingTop: 6 },
-        tabBarLabelStyle: { fontSize: 9.5, marginTop: 1 },
+        tabBarLabelStyle: { fontSize: 8.5, marginTop: 1 },
         tabBarIcon: ({ color }) => (
           <TabIcon route={route.name} color={color} size={23} />
         ),
@@ -92,7 +92,7 @@ function Tabs() {
       <Tab.Screen name="Clients" component={ClientsStack} options={{ title: "Клиенты" }} />
       <Tab.Screen name="Content" component={ContentScreen} options={{ title: "Контент" }} />
       <Tab.Screen name="Analytics" component={AnalyticsStack} options={{ title: "Аналитика" }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Ещё" }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Настройки" }} />
     </Tab.Navigator>
   );
 }
