@@ -24,7 +24,7 @@
       "policy": "sdkVersion"
     },
     "extra": {
-      "backendUrl": "https://crm-xq2d.onrender.com",
+      "backendUrl": "https://crm-ujn8.vercel.app",
       "revenueCatIosKey": "",
       "revenueCatAndroidKey": "",
       "revenueCatEntitlement": "pro",
