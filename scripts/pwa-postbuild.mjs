@@ -168,6 +168,13 @@ if (!html.includes("apple-mobile-web-app-title")) {
 }
 // Заголовок вкладки → ExpertOS.
 html = html.replace(/<title>[\s\S]*?<\/title>/, "<title>ExpertOS</title>");
+
+// Запрет авто-зума при вводе в поля на iOS (страница не «приближается»).
+html = html.replace(
+  /<meta name="viewport"[^>]*>/,
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />',
+);
+
 fs.writeFileSync(htmlPath, html);
 
 console.log("PWA-постобработка готова:", PUBLIC_DIR);
