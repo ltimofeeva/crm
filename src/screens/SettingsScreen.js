@@ -186,7 +186,7 @@ export default function SettingsScreen({ navigation, route }) {
       <Text style={styles.section}>ПОДПИСКА</Text>
       <Card style={styles.subRow} onPress={() => navigation.navigate("Paywall")}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.prodName}>Практика Про</Text>
+          <Text style={styles.prodName}>ExpertOS Про</Text>
           <Text style={styles.prodMeta}>
             {billingEnabled ? (isPro ? "Подписка активна" : "Подписка не оформлена") : "Режим разработки — всё открыто"}
           </Text>

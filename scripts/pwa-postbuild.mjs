@@ -16,9 +16,9 @@ if (!PUBLIC_DIR) {
   process.exit(1);
 }
 
-// Фирменные цвета (совпадают с src/theme.js).
-const BG = [0x33, 0x60, 0x4f];   // primary
-const FG = [0xf3, 0xf5, 0xf2];   // cream
+// Цвета заглушки иконки (тёмный фон ExpertOS + голубой знак).
+const BG = [0x0e, 0x14, 0x20];   // тёмно-синий
+const FG = [0x3b, 0x9c, 0xf5];   // голубой
 
 // ---- Мини-энкодер PNG (RGBA, 8 бит) ----
 function crc32(buf) {
@@ -69,15 +69,17 @@ function drawIcon(size) {
     return dx * dx + dy * dy <= r * r || (x >= r && x <= size - r) || (y >= r && y <= size - r);
   };
 
-  // Геометрия буквы «П»: две вертикальные стойки + верхняя перекладина.
-  const m = size * 0.30;          // поля слева/справа/сверху
+  // Геометрия буквы «E»: левая стойка + три перекладины.
+  const m = size * 0.30;          // поля
   const barW = size * 0.12;       // толщина штрихов
   const left = m, right = size - m;
   const top = m, bottom = size - m * 0.9;
-  const isP = (x, y) => {
-    if (y >= top && y <= top + barW && x >= left && x <= right) return true;      // перекладина
-    if (x >= left && x <= left + barW && y >= top && y <= bottom) return true;    // левая стойка
-    if (x >= right - barW && x <= right && y >= top && y <= bottom) return true;  // правая стойка
+  const mid = (top + bottom) / 2 - barW / 2;
+  const isE = (x, y) => {
+    if (x >= left && x <= left + barW && y >= top && y <= bottom) return true;    // стойка
+    if (y >= top && y <= top + barW && x >= left && x <= right) return true;      // верхняя
+    if (y >= mid && y <= mid + barW && x >= left && x <= right * 0.92) return true; // средняя
+    if (y >= bottom - barW && y <= bottom && x >= left && x <= right) return true; // нижняя
     return false;
   };
 
@@ -86,7 +88,7 @@ function drawIcon(size) {
       const i = (y * size + x) * 4;
       const inside = inRounded(x, y);
       if (!inside) { px[i + 3] = 0; continue; } // прозрачные углы
-      const letter = isP(x, y);
+      const letter = isE(x, y);
       const c = letter ? FG : BG;
       px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
     }
@@ -97,47 +99,75 @@ function drawIcon(size) {
 const iconsDir = path.join(PUBLIC_DIR, "icons");
 fs.mkdirSync(iconsDir, { recursive: true });
 
-const sizes = { "icon-192.png": 192, "icon-512.png": 512, "apple-touch-icon.png": 180 };
-for (const [name, size] of Object.entries(sizes)) {
-  fs.writeFileSync(path.join(iconsDir, name), drawIcon(size));
+// Если владелица положила свой логотип в assets/logo.png — используем его
+// как иконку (копируем как есть, браузер/iOS масштабируют под нужный размер).
+// Иначе рисуем временную иконку-заглушку с буквой «E».
+const LOGO = path.join("assets", "logo.png");
+const hasLogo = fs.existsSync(LOGO);
+function writeIcon(file, size) {
+  const dest = path.join(iconsDir, file);
+  if (hasLogo) fs.copyFileSync(LOGO, dest);
+  else fs.writeFileSync(dest, drawIcon(size));
 }
+writeIcon("icon-192.png", 192);
+writeIcon("icon-512.png", 512);
+writeIcon("apple-touch-icon.png", 180);
 // favicon
-fs.writeFileSync(path.join(PUBLIC_DIR, "favicon.png"), drawIcon(64));
+if (hasLogo) fs.copyFileSync(LOGO, path.join(PUBLIC_DIR, "favicon.png"));
+else fs.writeFileSync(path.join(PUBLIC_DIR, "favicon.png"), drawIcon(64));
+console.log(hasLogo ? "Иконка: assets/logo.png" : "Иконка: заглушка (положите assets/logo.png)");
 
 // ---- manifest.json ----
 const manifest = {
-  name: "Практика",
-  short_name: "Практика",
-  description: "CRM для помогающих специалистов",
+  name: "ExpertOS",
+  short_name: "ExpertOS",
+  description: "CRM и ИИ-ассистент для помогающих специалистов",
   start_url: "/",
   scope: "/",
   display: "standalone",
   orientation: "portrait",
-  background_color: "#F3F5F2",
-  theme_color: "#33604F",
+  background_color: "#0E1420",
+  theme_color: "#0E1420",
   icons: [
-    { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
-    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+    { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
   ],
 };
 fs.writeFileSync(path.join(PUBLIC_DIR, "manifest.json"), JSON.stringify(manifest, null, 2));
+
+// ---- .htaccess (для статического хостинга Apache, напр. Beget): любые
+// адреса отдают index.html, чтобы приложение открывалось на всех путях. ----
+const htaccess = [
+  "<IfModule mod_rewrite.c>",
+  "  RewriteEngine On",
+  "  RewriteBase /",
+  "  RewriteRule ^index\\.html$ - [L]",
+  "  RewriteCond %{REQUEST_FILENAME} !-f",
+  "  RewriteCond %{REQUEST_FILENAME} !-d",
+  "  RewriteRule . /index.html [L]",
+  "</IfModule>",
+  "",
+].join("\n");
+fs.writeFileSync(path.join(PUBLIC_DIR, ".htaccess"), htaccess);
 
 // ---- патчим index.html ----
 const htmlPath = path.join(PUBLIC_DIR, "index.html");
 let html = fs.readFileSync(htmlPath, "utf8");
 const head = `
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#33604F" />
+    <meta name="theme-color" content="#0E1420" />
     <link rel="icon" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Практика" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ExpertOS" />
   `;
 if (!html.includes("apple-mobile-web-app-title")) {
   html = html.replace("</head>", `${head}</head>`);
-  fs.writeFileSync(htmlPath, html);
 }
+// Заголовок вкладки → ExpertOS.
+html = html.replace(/<title>[\s\S]*?<\/title>/, "<title>ExpertOS</title>");
+fs.writeFileSync(htmlPath, html);
 
 console.log("PWA-постобработка готова:", PUBLIC_DIR);

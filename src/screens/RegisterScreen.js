@@ -40,7 +40,7 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.brand, SERIF]}>Практика</Text>
+      <Text style={[styles.brand, SERIF]}>ExpertOS</Text>
       <Text style={styles.subtitle}>Создайте аккаунт, чтобы начать работу</Text>
 
       <View style={styles.card}>

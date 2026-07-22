@@ -30,7 +30,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.brand, SERIF]}>Практика</Text>
+      <Text style={[styles.brand, SERIF]}>ExpertOS</Text>
       <Text style={styles.subtitle}>Вход в ваш кабинет</Text>
 
       <View style={styles.card}>
