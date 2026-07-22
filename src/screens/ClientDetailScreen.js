@@ -11,6 +11,7 @@ import { useSubscription } from "../context/SubscriptionContext";
 import { currentAge, yearsWord, formatBirthDate } from "../utils/birthday";
 import { formatPhone } from "../utils/phone";
 import { CONTACT_CHANNELS } from "./ClientsScreen";
+import { PencilIcon, TrashIcon, CloseIcon, SaveIcon } from "../components/icons";
 
 const TREND = {
   up: { label: "↑ Динамика положительная", tone: "green" },
@@ -151,11 +152,11 @@ export default function ClientDetailScreen({ route, navigation }) {
               </View>
               <View style={styles.headRight}>
                 <Tag tone={client.status === "Пауза" ? "clay" : "green"}>{client.status}</Tag>
-                <Pressable onPress={openEdit} style={styles.editBtn} hitSlop={8}>
-                  <Text style={styles.editBtnT}>✎</Text>
+                <Pressable onPress={openEdit} style={styles.iconBtn} hitSlop={8}>
+                  <PencilIcon size={17} color={C.primary} />
                 </Pressable>
-                <Pressable onPress={removeClient} style={[styles.editBtn, styles.delBtn]} hitSlop={8}>
-                  <Text style={styles.delBtnT}>🗑</Text>
+                <Pressable onPress={removeClient} style={styles.iconBtn} hitSlop={8}>
+                  <TrashIcon size={17} color={C.accent} />
                 </Pressable>
               </View>
             </View>
@@ -190,7 +191,17 @@ export default function ClientDetailScreen({ route, navigation }) {
           </>
         ) : (
           <>
-            <Text style={styles.editTitle}>Редактирование карточки</Text>
+            <View style={styles.editHead}>
+              <Text style={styles.editTitle}>Редактирование карточки</Text>
+              <View style={styles.editHeadBtns}>
+                <Pressable onPress={() => setEditOpen(false)} style={[styles.roundBtn, styles.roundCancel]} hitSlop={8}>
+                  <CloseIcon size={18} color={C.white} />
+                </Pressable>
+                <Pressable onPress={saveEdit} style={[styles.roundBtn, styles.roundSave]} hitSlop={8}>
+                  <SaveIcon size={17} color={C.white} />
+                </Pressable>
+              </View>
+            </View>
             <TextInput value={editForm.name} onChangeText={setE("name")} placeholder="Имя и фамилия *" placeholderTextColor={C.inkSoft} style={styles.input} />
             <TextInput
               value={editForm.birthDate}
@@ -217,10 +228,6 @@ export default function ClientDetailScreen({ route, navigation }) {
                   <Text style={[styles.channelT, editForm.contactVia === ch && styles.channelTOn]}>{ch}</Text>
                 </Pressable>
               ))}
-            </View>
-            <View style={styles.actions}>
-              <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setEditOpen(false)} /></View>
-              <View style={{ flex: 1 }}><PrimaryButton title="Сохранить" tone="accent" onPress={saveEdit} /></View>
             </View>
           </>
         )}
@@ -355,14 +362,16 @@ const styles = StyleSheet.create({
   copyLink: { fontSize: 12, color: C.primary, fontWeight: "600", marginTop: 6 },
   next: { fontSize: 13, color: C.ink, marginTop: 10 },
   headRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  editBtn: {
-    width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center",
+  iconBtn: {
+    width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center",
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
   },
-  editBtnT: { fontSize: 14, color: C.primary },
-  delBtn: { backgroundColor: C.accentSoft, borderColor: C.accentSoft },
-  delBtnT: { fontSize: 13 },
-  editTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
+  editHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 },
+  editHeadBtns: { flexDirection: "row", alignItems: "center", gap: 10 },
+  roundBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  roundCancel: { backgroundColor: "#D64550" },
+  roundSave: { backgroundColor: C.primary },
+  editTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
   input: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
