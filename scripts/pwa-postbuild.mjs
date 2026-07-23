@@ -147,6 +147,16 @@ const htaccess = [
   "  RewriteRule . /index.html [L]",
   "</IfModule>",
   "",
+  "# index.html и manifest не кэшируем — чтобы обновления подхватывались сразу.",
+  "# Файлы _expo с хешем в имени можно кэшировать надолго (они неизменны).",
+  "<IfModule mod_headers.c>",
+  "  <FilesMatch \"(index\\.html|manifest\\.json)$\">",
+  "    Header set Cache-Control \"no-cache, no-store, must-revalidate\"",
+  "    Header set Pragma \"no-cache\"",
+  "    Header set Expires \"0\"",
+  "  </FilesMatch>",
+  "</IfModule>",
+  "",
 ].join("\n");
 fs.writeFileSync(path.join(PUBLIC_DIR, ".htaccess"), htaccess);
 
