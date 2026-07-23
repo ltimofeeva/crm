@@ -7,4 +7,6 @@ import Constants from "expo-constants";
 export const BACKEND_URL =
   Constants?.expoConfig?.extra?.backendUrl ||
   Constants?.manifest?.extra?.backendUrl ||
-  "http://localhost:8787";
+  // Рабочий сервер ИИ (Vercel). Используется, если адрес из app.json не
+  // подставился при сборке (так бывает в веб-сборке Expo).
+  "https://crm-ujn8.vercel.app";
