@@ -28,10 +28,13 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "messages обязателен" });
       return;
     }
+    // Без адаптивного «глубокого размышления»: на бесплатном Vercel есть
+    // лимит времени, а thinking сильно увеличивает задержку и приводит к
+    // обрыву запроса. Для задач приложения (идеи, напоминания, анализ, чат)
+    // Opus 4.8 и так отвечает качественно.
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      thinking: { type: "adaptive" },
       system: system || undefined,
       messages,
     });
