@@ -99,12 +99,23 @@ export async function buildContext() {
 
 // Отправить диалог ассистенту. messages: [{role, content}].
 export async function sendChat({ messages, system }) {
-  const res = await fetch(`${BACKEND_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, system }),
-  });
-  if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+  // Короткое имя сервера для понятных сообщений об ошибке.
+  const host = BACKEND_URL.replace(/^https?:\/\//, "");
+  let res;
+  try {
+    res = await fetch(`${BACKEND_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, system }),
+    });
+  } catch (netErr) {
+    throw new Error(`Не удалось соединиться с сервером ${host}. Проверьте интернет. (${netErr?.message || netErr})`);
+  }
+  if (!res.ok) {
+    let body = "";
+    try { body = (await res.text()).slice(0, 160); } catch (e) {}
+    throw new Error(`Сервер ${host} вернул код ${res.status}. ${body}`);
+  }
   const data = await res.json();
   return data.text || "";
 }

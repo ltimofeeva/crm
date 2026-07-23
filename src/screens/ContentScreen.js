@@ -25,6 +25,7 @@ export default function ContentScreen({ navigation }) {
   const [content, setContent] = useState({ ideas: [], drafts: [], planned: [] });
   const [seg, setSeg] = useState("ideas");
   const [genState, setGenState] = useState("idle");
+  const [genErr, setGenErr] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   // Раскрытый редактор текста темы: id записи и её черновик текста.
@@ -52,6 +53,7 @@ export default function ContentScreen({ navigation }) {
       setSeg("ideas");
       setGenState("idle");
     } catch (e) {
+      setGenErr(e?.message || "Неизвестная ошибка");
       setGenState("error");
     }
   };
@@ -114,7 +116,8 @@ export default function ContentScreen({ navigation }) {
       )}
       {genState === "error" && (
         <Card style={{ padding: 14, marginBottom: 8 }}>
-          <Text style={{ fontSize: 12, color: C.accent }}>Не получилось сгенерировать идеи. Попробуйте ещё раз.</Text>
+          <Text style={{ fontSize: 12, color: C.accent, fontWeight: "600" }}>Не получилось сгенерировать идеи.</Text>
+          {genErr ? <Text style={{ fontSize: 11, color: C.inkSoft, marginTop: 6, lineHeight: 15 }}>{genErr}</Text> : null}
         </Card>
       )}
 
