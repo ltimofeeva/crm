@@ -9,8 +9,30 @@ import {
 import { C } from "../theme";
 import { PrimaryButton } from "../components/ui";
 import { sendChat, buildFullContext, UNPACK_SYSTEM } from "../api/ai";
-import { getChatState, saveChatState } from "../storage/store";
+import { getChatState, saveChatState, getProfile, saveProfile } from "../storage/store";
 import { useSubscription } from "../context/SubscriptionContext";
+
+// Служебный блок с итогом распаковки: <О_СЕБЕ>{...}</О_СЕБЕ>.
+const UNPACK_RE = /<О_СЕБЕ>([\s\S]*?)<\/О_СЕБЕ>/;
+
+function parseUnpack(text) {
+  const m = UNPACK_RE.exec(text || "");
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[1].trim());
+    if (!o || (!o.activity && !o.approach && !o.strengths)) return null;
+    return {
+      activity: (o.activity || "").trim(),
+      approach: (o.approach || "").trim(),
+      strengths: (o.strengths || "").trim(),
+    };
+  } catch (e) { return null; }
+}
+
+// Убираем служебный блок из текста, который показываем в чате.
+function stripUnpack(text) {
+  return (text || "").replace(/<О_СЕБЕ>[\s\S]*?<\/О_СЕБЕ>/g, "").trim();
+}
 
 const QUICK = [
   "Подготовь меня к следующей сессии с клиентом",
@@ -29,8 +51,33 @@ export default function AIChatScreen({ route, navigation }) {
   const [system, setSystem] = useState("");
   const [ready, setReady] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [unpackResult, setUnpackResult] = useState(null);
+  const [profileSaved, setProfileSaved] = useState(false);
   const scrollRef = useRef(null);
   const activeIdRef = useRef(null);
+
+  // В режиме распаковки: как только в ответе появился итоговый блок —
+  // достаём готовое «О себе» и показываем кнопку сохранения.
+  useEffect(() => {
+    if (!route.params?.unpack) return;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role !== "assistant") continue;
+      const r = parseUnpack(messages[i].content);
+      if (r) { setUnpackResult(r); return; }
+    }
+  }, [messages, route.params?.unpack]);
+
+  const saveUnpackToProfile = async () => {
+    if (!unpackResult) return;
+    const prof = await getProfile();
+    await saveProfile({
+      ...prof,
+      activity: unpackResult.activity,
+      approach: unpackResult.approach,
+      strengths: unpackResult.strengths,
+    });
+    setProfileSaved(true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -153,15 +200,34 @@ export default function AIChatScreen({ route, navigation }) {
             ))}
           </View>
         )}
-        {messages.map((m, i) => (
-          <View key={i} style={[styles.bubbleRow, { justifyContent: m.role === "user" ? "flex-end" : "flex-start" }]}>
-            <View style={[styles.bubble, m.role === "user" ? styles.user : styles.assistant]}>
-              <Text style={[styles.bubbleText, { color: m.role === "user" ? C.white : C.ink }]}>{m.content}</Text>
+        {messages.map((m, i) => {
+          const text = m.role === "assistant" ? stripUnpack(m.content) : m.content;
+          if (!text) return null;
+          return (
+            <View key={i} style={[styles.bubbleRow, { justifyContent: m.role === "user" ? "flex-end" : "flex-start" }]}>
+              <View style={[styles.bubble, m.role === "user" ? styles.user : styles.assistant]}>
+                <Text style={[styles.bubbleText, { color: m.role === "user" ? C.white : C.ink }]}>{text}</Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
         {loading && <View style={styles.bubbleRow}><View style={[styles.bubble, styles.assistant]}><ActivityIndicator color={C.inkSoft} /></View></View>}
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {unpackResult && (
+          <View style={styles.saveCard}>
+            <Text style={styles.saveTitle}>Распаковка готова ✨</Text>
+            <Text style={styles.saveText}>
+              Сохранить это описание в раздел «О себе»? Оно попадёт в профиль (⚙ Настройки → О себе)
+              и будет учитываться ассистентом. Текущее описание заменится.
+            </Text>
+            <PrimaryButton
+              title={profileSaved ? "Сохранено в «О себе» ✓" : "Сохранить в «О себе»"}
+              tone="accent"
+              onPress={profileSaved ? undefined : saveUnpackToProfile}
+            />
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.inputBar}>
@@ -223,6 +289,9 @@ const styles = StyleSheet.create({
   assistant: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomLeftRadius: 6 },
   bubbleText: { fontSize: 14, lineHeight: 20 },
   error: { fontSize: 12, color: C.accent, textAlign: "center", marginTop: 8 },
+  saveCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.primary, borderRadius: 16, padding: 14, marginTop: 6 },
+  saveTitle: { fontSize: 14, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  saveText: { fontSize: 12, color: C.inkSoft, lineHeight: 17, marginBottom: 10 },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg },
   input: { flex: 1, maxHeight: 120, backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: C.ink },
   sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
