@@ -8,12 +8,15 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  register, login, userIdByToken, revokeToken, getData, setData,
+} from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());               // для продакшена ограничьте origin вашим доменом
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "5mb" }));
 
 // Отдаём собранное веб-приложение (папка public), чтобы его можно было
 // открыть по адресу сервера и добавить «на экран Домой» как иконку.
@@ -24,6 +27,46 @@ const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
 
 // Проверка живости
 app.get("/health", (_req, res) => res.json({ ok: true, model: MODEL }));
+
+// ---------- Аккаунты (общие для всех устройств) ----------
+
+app.post("/api/auth/register", (req, res) => {
+  const r = register(req.body || {});
+  if (r.error) return res.status(400).json(r);
+  res.json(r); // { token, user }
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const r = login(req.body || {});
+  if (r.error) return res.status(400).json(r);
+  res.json(r); // { token, user }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  const t = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  revokeToken(t);
+  res.json({ ok: true });
+});
+
+// Middleware: проверка токена.
+function requireAuth(req, res, next) {
+  const t = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const uid = userIdByToken(t);
+  if (!uid) return res.status(401).json({ error: "Не авторизован" });
+  req.userId = uid;
+  next();
+}
+
+// ---------- Данные пользователя (синхронизация между устройствами) ----------
+
+app.get("/api/data", requireAuth, (req, res) => {
+  res.json({ data: getData(req.userId) });
+});
+
+app.put("/api/data", requireAuth, (req, res) => {
+  setData(req.userId, (req.body && req.body.data) || {});
+  res.json({ ok: true });
+});
 
 // Основной эндпоинт: { system?: string, messages: [{role, content}] } -> { text }
 app.post("/api/chat", async (req, res) => {

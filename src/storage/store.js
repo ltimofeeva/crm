@@ -9,6 +9,7 @@
 // модуль, поэтому заменить хранилище на зашифрованное можно в одном месте.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiPutData } from "../api/backend";
 
 const KEYS = {
   clients: "practice.clients.v1",
@@ -23,6 +24,83 @@ const KEYS = {
   installedAt: "practice.installedAt.v1",
 };
 
+// Какие данные синхронизируются с сервером (всё, кроме технической метки
+// первого запуска, которая привязана к устройству).
+const SYNC_NAMES = [
+  "clients", "events", "products", "profile", "content",
+  "schedule", "reminders", "chats", "blocks",
+];
+
+// ---------- Синхронизация с сервером ----------
+// Токен текущего пользователя; пока не задан — работаем только локально.
+let authToken = null;
+let suppressSync = false;
+let syncTimer = null;
+
+export function setSyncToken(token) {
+  authToken = token || null;
+}
+
+// Отложенная отправка всех данных на сервер (после изменений).
+function scheduleSync() {
+  if (suppressSync || !authToken) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      const blob = await exportAll();
+      await apiPutData(authToken, blob);
+    } catch (e) { /* сеть недоступна — синхронизируется позже */ }
+  }, 700);
+}
+
+// Собрать все синхронизируемые данные в один объект.
+export async function exportAll() {
+  const out = {};
+  for (const name of SYNC_NAMES) {
+    const raw = await AsyncStorage.getItem(KEYS[name]);
+    if (raw != null) out[name] = JSON.parse(raw);
+  }
+  return out;
+}
+
+// Записать данные, пришедшие с сервера, в локальное хранилище (при входе).
+// Ключи, которых нет в blob, очищаются — чтобы локально было ровно то, что
+// на сервере у этого аккаунта.
+export async function importAll(blob) {
+  suppressSync = true;
+  try {
+    for (const name of SYNC_NAMES) {
+      if (blob && blob[name] !== undefined) {
+        await AsyncStorage.setItem(KEYS[name], JSON.stringify(blob[name]));
+      } else {
+        await AsyncStorage.removeItem(KEYS[name]);
+      }
+    }
+  } finally {
+    suppressSync = false;
+  }
+}
+
+// Очистить данные аккаунта локально (при выходе).
+export async function clearUserData() {
+  suppressSync = true;
+  try {
+    for (const name of SYNC_NAMES) await AsyncStorage.removeItem(KEYS[name]);
+  } finally {
+    suppressSync = false;
+  }
+}
+
+// Отправить текущие локальные данные на сервер немедленно (при регистрации —
+// перенос уже введённых данных в новый аккаунт).
+export async function pushAllNow() {
+  if (!authToken) return;
+  try {
+    const blob = await exportAll();
+    await apiPutData(authToken, blob);
+  } catch (e) {}
+}
+
 async function read(key, fallback) {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -36,6 +114,7 @@ async function read(key, fallback) {
 async function write(key, value) {
   try {
     await AsyncStorage.setItem(key, JSON.stringify(value));
+    scheduleSync(); // после каждого изменения — отправка на сервер
   } catch (e) {
     console.warn("storage write error", key, e);
   }

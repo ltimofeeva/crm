@@ -7,3 +7,6 @@ web-build/
 backend/.env
 .DS_Store
 expertos-site.zip
+
+# Личные данные пользователей на сервере (не коммитим)
+backend/data/
