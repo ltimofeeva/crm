@@ -77,7 +77,7 @@ export default function ReminderCard({ reminder, onOpenClient, onCompose, onLogg
 
 const styles = StyleSheet.create({
   card: { padding: 14, marginBottom: 8 },
-  doneCard: { backgroundColor: "#EDEFEC", borderColor: "#EDEFEC" },
+  doneCard: { backgroundColor: C.primarySoft, borderColor: C.primarySoft },
   doneTitle: { fontSize: 13, fontWeight: "600", color: C.inkSoft },
   doneNote: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 16 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },

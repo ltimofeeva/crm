@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   boxTick: { color: C.white, fontSize: 13, fontWeight: "700" },
   checkText: { flex: 1, fontSize: 13, color: C.ink, lineHeight: 19 },
   link: { color: C.primary, fontWeight: "600", textDecorationLine: "underline" },
-  error: { fontSize: 13, color: C.accent, marginBottom: 10, lineHeight: 18 },
+  error: { fontSize: 13, color: C.danger, marginBottom: 10, lineHeight: 18 },
   switchRow: { alignItems: "center", marginTop: 18 },
   switchText: { fontSize: 14, color: C.inkSoft },
 });

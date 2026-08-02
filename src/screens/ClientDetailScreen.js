@@ -156,7 +156,7 @@ export default function ClientDetailScreen({ route, navigation }) {
                   <PencilIcon size={17} color={C.primary} />
                 </Pressable>
                 <Pressable onPress={removeClient} style={styles.iconBtn} hitSlop={8}>
-                  <TrashIcon size={17} color={C.accent} />
+                  <TrashIcon size={17} color={C.danger} />
                 </Pressable>
               </View>
             </View>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   editHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 },
   editHeadBtns: { flexDirection: "row", alignItems: "center", gap: 10 },
   roundBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  roundCancel: { backgroundColor: "#D64550" },
+  roundCancel: { backgroundColor: C.danger },
   roundSave: { backgroundColor: C.primary },
   editTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
   input: {

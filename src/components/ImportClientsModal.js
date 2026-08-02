@@ -335,5 +335,5 @@ const styles = StyleSheet.create({
   optionTOn: { color: C.primary, fontWeight: "600" },
   example: { fontSize: 11, color: C.inkSoft, marginTop: 4, fontStyle: "italic" },
   doneTitle: { fontSize: 16, fontWeight: "700", color: C.primary, marginBottom: 8 },
-  error: { fontSize: 12, color: C.accent, marginTop: 8, lineHeight: 17 },
+  error: { fontSize: 12, color: C.danger, marginTop: 8, lineHeight: 17 },
 });

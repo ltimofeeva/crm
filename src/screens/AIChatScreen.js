@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   user: { backgroundColor: C.primary, borderBottomRightRadius: 6 },
   assistant: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomLeftRadius: 6 },
   bubbleText: { fontSize: 14, lineHeight: 20 },
-  error: { fontSize: 12, color: C.accent, textAlign: "center", marginTop: 8 },
+  error: { fontSize: 12, color: C.danger, textAlign: "center", marginTop: 8 },
   saveCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.primary, borderRadius: 16, padding: 14, marginTop: 6 },
   saveTitle: { fontSize: 14, fontWeight: "700", color: C.ink, marginBottom: 6 },
   saveText: { fontSize: 12, color: C.inkSoft, lineHeight: 17, marginBottom: 10 },

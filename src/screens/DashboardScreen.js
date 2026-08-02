@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   remReason: { fontSize: 13, color: C.ink, lineHeight: 18 },
   remAction: { fontSize: 12, color: C.inkSoft, marginTop: 4, lineHeight: 17 },
-  err: { fontSize: 12, color: C.accent, lineHeight: 17 },
+  err: { fontSize: 12, color: C.danger, lineHeight: 17 },
   bday: { padding: 14, marginBottom: 8, backgroundColor: C.accentSoft, borderColor: C.accentSoft },
   bdayName: { fontSize: 14, fontWeight: "600", color: C.primary, textDecorationLine: "underline" },
   bdayText: { fontSize: 13, color: C.ink, lineHeight: 18, marginTop: 4 },

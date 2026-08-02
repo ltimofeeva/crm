@@ -210,7 +210,7 @@ export default function ContentScreen({ navigation }) {
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  segbar: { flexDirection: "row", backgroundColor: "#E9EDE9", borderRadius: 12, padding: 4, gap: 4, marginBottom: 12, marginTop: 8 },
+  segbar: { flexDirection: "row", backgroundColor: C.primarySoft, borderRadius: 12, padding: 4, gap: 4, marginBottom: 12, marginTop: 8 },
   seg: { flex: 1, textAlign: "center", paddingVertical: 8, borderRadius: 8, fontSize: 12, color: C.inkSoft, overflow: "hidden" },
   segActive: { backgroundColor: C.white, color: C.ink, fontWeight: "600" },
   segCount: { fontSize: 11, color: C.inkSoft },

@@ -132,5 +132,5 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
   },
-  moveError: { fontSize: 12, color: C.accent, marginBottom: 8 },
+  moveError: { fontSize: 12, color: C.danger, marginBottom: 8 },
 });

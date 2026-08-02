@@ -238,7 +238,7 @@ export default function AnalyticsScreen({ navigation }) {
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 40 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  segbar: { flexDirection: "row", backgroundColor: "#E9EDE9", borderRadius: 12, padding: 4, gap: 4, marginVertical: 12 },
+  segbar: { flexDirection: "row", backgroundColor: C.primarySoft, borderRadius: 12, padding: 4, gap: 4, marginVertical: 12 },
   seg: { flex: 1, textAlign: "center", paddingVertical: 8, borderRadius: 8, fontSize: 13, color: C.inkSoft, overflow: "hidden" },
   segActive: { backgroundColor: C.white, color: C.ink, fontWeight: "600" },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   info: { padding: 14, marginBottom: 12 },
   infoTitle: { fontSize: 13, fontWeight: "600", color: C.ink, marginBottom: 4 },
   infoText: { fontSize: 12, color: C.inkSoft, lineHeight: 17 },
-  infoWarn: { fontSize: 12, color: C.accent, marginTop: 6 },
+  infoWarn: { fontSize: 12, color: C.danger, marginTop: 6 },
   aiBtn: { marginBottom: 20 },
   hint: { padding: 14, marginTop: 12 },
   hintText: { fontSize: 12, color: C.inkSoft, lineHeight: 17 },
