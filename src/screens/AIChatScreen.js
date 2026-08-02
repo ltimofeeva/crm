@@ -34,6 +34,62 @@ function stripUnpack(text) {
   return (text || "").replace(/<О_СЕБЕ>[\s\S]*?<\/О_СЕБЕ>/g, "").trim();
 }
 
+// Запасной разбор: если модель забыла служебный блок, собираем «О себе»
+// прямо из текста по трём заголовкам.
+const SECTIONS = [
+  { key: "activity", re: /^чем\s+занимаюсь/i },
+  { key: "approach", re: /^подход\s+и\s+ценности/i },
+  { key: "strengths", re: /^сильные\s+стороны/i },
+];
+
+// Строка-призыв в конце описания — в поля профиля она попасть не должна.
+const CTA_RE = /перенести\s+в\s+профиль/i;
+
+function headingKey(line) {
+  const t = (line || "")
+    .replace(/[*_#`]/g, "")
+    .replace(/^\s*\d+[).]\s*/, "")
+    .trim()
+    .replace(/[:—-]\s*$/, "");
+  if (!t || t.length > 40) return null;
+  for (const s of SECTIONS) if (s.re.test(t)) return s.key;
+  return null;
+}
+
+function parseUnpackFromText(text) {
+  const lines = stripUnpack(text).split(/\r?\n/);
+  const marks = [];
+  lines.forEach((l, i) => {
+    const k = headingKey(l);
+    if (k && !marks.some((m) => m.key === k)) marks.push({ key: k, i });
+  });
+  // Два заголовка из трёх — уже уверенный признак итога распаковки.
+  if (marks.length < 2) return null;
+  const out = { activity: "", approach: "", strengths: "" };
+  marks.forEach((m, n) => {
+    const end = n + 1 < marks.length ? marks[n + 1].i : lines.length;
+    let body = lines.slice(m.i + 1, end);
+    const cut = body.findIndex((l) => CTA_RE.test(l));
+    if (cut !== -1) body = body.slice(0, cut);
+    out[m.key] = body.join("\n").trim();
+  });
+  if (!out.activity && !out.approach && !out.strengths) return null;
+  return out;
+}
+
+// Итог распаковки: сначала служебный блок, если его нет — разбор по заголовкам.
+function extractUnpack(text) {
+  return parseUnpack(text) || parseUnpackFromText(text);
+}
+
+// Просьба перенести описание в профиль: «Перенести в профиль», «перенеси»…
+function isTransferRequest(text) {
+  const t = (text || "").toLowerCase().replace(/[«»„“"'.,!?]/g, " ");
+  if (!/(перенес|перенеси|перенести|сохран|запиши)/.test(t)) return false;
+  if (/(профил|настройк|о себе)/.test(t)) return true;
+  return t.trim().split(/\s+/).filter(Boolean).length <= 2;
+}
+
 const QUICK = [
   "Подготовь меня к следующей сессии с клиентом",
   "Составь удобную структуру заметки после сессии",
@@ -56,27 +112,28 @@ export default function AIChatScreen({ route, navigation }) {
   const scrollRef = useRef(null);
   const activeIdRef = useRef(null);
 
-  // В режиме распаковки: как только в ответе появился итоговый блок —
-  // достаём готовое «О себе» и показываем кнопку сохранения.
+  // Как только в ответе появился итог распаковки — запоминаем его.
+  // Если ассистент потом поправит описание, берём последнюю версию.
   useEffect(() => {
-    if (!route.params?.unpack) return;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role !== "assistant") continue;
-      const r = parseUnpack(messages[i].content);
-      if (r) { setUnpackResult(r); return; }
+      const r = extractUnpack(messages[i].content);
+      if (r) { setUnpackResult(r); setProfileSaved(false); return; }
     }
-  }, [messages, route.params?.unpack]);
+  }, [messages]);
 
-  const saveUnpackToProfile = async () => {
-    if (!unpackResult) return;
+  // Переносим описание в профиль (⚙ Настройки → О себе) и сразу сохраняем.
+  const saveUnpackToProfile = async (result = unpackResult) => {
+    if (!result) return false;
     const prof = await getProfile();
     await saveProfile({
       ...prof,
-      activity: unpackResult.activity,
-      approach: unpackResult.approach,
-      strengths: unpackResult.strengths,
+      activity: result.activity || prof.activity || "",
+      approach: result.approach || prof.approach || "",
+      strengths: result.strengths || prof.strengths || "",
     });
     setProfileSaved(true);
+    return true;
   };
 
   useEffect(() => {
@@ -144,6 +201,26 @@ export default function AIChatScreen({ route, navigation }) {
     const userText = (text ?? input).trim();
     if (!userText || loading) return;
     setError(null); setInput("");
+
+    // «Перенести в профиль» — заполняем «О себе» и сохраняем сами,
+    // без обращения к ИИ: описание уже готово в последнем ответе.
+    if (unpackResult && isTransferRequest(userText)) {
+      const ok = await saveUnpackToProfile();
+      setMessages((p) => [
+        ...p,
+        { role: "user", content: userText },
+        {
+          role: "assistant",
+          content: ok
+            ? "Готово — описание перенесено в твой профиль: ⚙ Настройки → О себе. " +
+              "Оно уже сохранено, и ассистент будет учитывать его во всех ответах. " +
+              "Там же можно поправить текст руками в любой момент."
+            : "Не получилось перенести описание. Попробуй ещё раз чуть позже.",
+        },
+      ]);
+      return;
+    }
+
     const history = [...messages, { role: "user", content: userText }];
     setMessages(history); setLoading(true);
     try {
@@ -218,13 +295,14 @@ export default function AIChatScreen({ route, navigation }) {
           <View style={styles.saveCard}>
             <Text style={styles.saveTitle}>Распаковка готова ✨</Text>
             <Text style={styles.saveText}>
-              Сохранить это описание в раздел «О себе»? Оно попадёт в профиль (⚙ Настройки → О себе)
-              и будет учитываться ассистентом. Текущее описание заменится.
+              Напишите «Перенести в профиль» — или нажмите кнопку. Описание попадёт
+              в профиль (⚙ Настройки → О себе) и будет учитываться ассистентом.
+              Текущее описание заменится.
             </Text>
             <PrimaryButton
-              title={profileSaved ? "Сохранено в «О себе» ✓" : "Сохранить в «О себе»"}
+              title={profileSaved ? "Перенесено в «О себе» ✓" : "Перенести в профиль"}
               tone="accent"
-              onPress={profileSaved ? undefined : saveUnpackToProfile}
+              onPress={profileSaved ? undefined : () => saveUnpackToProfile()}
             />
           </View>
         )}
