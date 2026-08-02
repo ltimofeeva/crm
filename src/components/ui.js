@@ -16,18 +16,23 @@ export function BrainButton({ onPress }) {
 }
 
 export function Card({ children, style, onPress }) {
-  const Comp = onPress ? Pressable : View;
+  // ВАЖНО: функцию в style понимает только Pressable. У обычного View такой
+  // style молча игнорируется — и карточка теряет фон, отступы и скругление.
+  // Поэтому для некликабельных карточек передаём обычный массив стилей.
+  if (!onPress) {
+    return <View style={[styles.card, style]}>{children}</View>;
+  }
   return (
-    <Comp
+    <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
         style,
-        onPress && pressed ? { opacity: 0.9, transform: [{ scale: 0.995 }] } : null,
+        pressed ? { opacity: 0.9 } : null,
       ]}
     >
       {children}
-    </Comp>
+    </Pressable>
   );
 }
 
