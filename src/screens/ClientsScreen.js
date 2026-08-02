@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { C, SERIF } from "../theme";
+import { C, R, SERIF } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import ImportClientsModal from "../components/ImportClientsModal";
 import { getClients, addClient } from "../storage/store";
@@ -185,34 +185,34 @@ export default function ClientsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 16, paddingBottom: 40 },
+  wrap: { padding: 20, paddingBottom: 44 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
   channelLabel: { fontSize: 11, color: C.inkSoft, marginBottom: 6 },
   channelRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
-  channelChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  channelChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.pill, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
   channelChipOn: { backgroundColor: C.primary, borderColor: C.primary },
   channelT: { fontSize: 12, color: C.ink },
   channelTOn: { color: C.white },
-  form: { padding: 14, marginBottom: 12 },
-  formTitle: { fontSize: 14, fontWeight: "600", color: C.ink, marginBottom: 10 },
+  form: { padding: 16, marginBottom: 14 },
+  formTitle: { fontSize: 15, fontWeight: "700", color: C.ink, marginBottom: 12 },
   input: {
-    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 8,
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.ink, marginBottom: 8,
   },
-  formActions: { flexDirection: "row", gap: 8, marginTop: 4 },
-  formHint: { fontSize: 11, color: C.inkSoft, marginTop: 10, lineHeight: 15 },
-  importLink: { fontSize: 13, color: C.primary, fontWeight: "600", marginBottom: 10 },
+  formActions: { flexDirection: "row", gap: 8, marginTop: 6 },
+  formHint: { fontSize: 11, color: C.inkSoft, marginTop: 12, lineHeight: 15 },
+  importLink: { fontSize: 13, color: C.primary, fontWeight: "700", marginBottom: 12 },
   search: {
-    backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: C.ink, marginBottom: 12,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
+    paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: C.ink, marginBottom: 14,
   },
-  empty: { padding: 20, alignItems: "center" },
-  emptyTitle: { fontSize: 15, fontWeight: "600", color: C.ink, marginBottom: 6 },
+  empty: { padding: 24, alignItems: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 8 },
   emptyText: { fontSize: 13, color: C.inkSoft, textAlign: "center", lineHeight: 19 },
-  row: { padding: 14, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
-  avatarT: { fontSize: 14, color: C.primary },
-  name: { fontSize: 14, fontWeight: "600", color: C.ink },
-  req: { fontSize: 11, color: C.inkSoft, marginTop: 2 },
-  count: { fontSize: 10, color: C.inkSoft, marginTop: 4 },
+  row: { padding: 15, flexDirection: "row", alignItems: "center", gap: 13, marginBottom: 10 },
+  avatar: { width: 42, height: 42, borderRadius: R.pill, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  avatarT: { fontSize: 15, color: C.primary },
+  name: { fontSize: 15, fontWeight: "600", color: C.ink },
+  req: { fontSize: 12, color: C.inkSoft, marginTop: 2 },
+  count: { fontSize: 10, color: C.inkSoft, marginTop: 5 },
 });

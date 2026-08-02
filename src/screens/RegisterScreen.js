@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import {
   ScrollView, View, Text, TextInput, StyleSheet, Pressable,
 } from "react-native";
-import { C, SERIF } from "../theme";
+import { C, R, SHADOW, SERIF } from "../theme";
 import { PrimaryButton } from "../components/ui";
 import LegalModal from "../components/LegalModal";
 import { useAuth } from "../context/AuthContext";
@@ -110,18 +110,18 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  brand: { fontSize: 30, color: C.primary, textAlign: "center" },
-  subtitle: { fontSize: 14, color: C.inkSoft, textAlign: "center", marginTop: 6, marginBottom: 24 },
-  card: { backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.line, padding: 16 },
-  tabs: { flexDirection: "row", backgroundColor: "#E9EDE9", borderRadius: 12, padding: 4, gap: 4, marginBottom: 12 },
-  tab: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: "center" },
-  tabOn: { backgroundColor: C.white },
+  wrap: { padding: 20, paddingTop: 64, paddingBottom: 40 },
+  brand: { fontSize: 34, color: C.primary, textAlign: "center", letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: C.inkSoft, textAlign: "center", marginTop: 8, marginBottom: 28 },
+  card: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.lineSoft, padding: 18, ...SHADOW.card },
+  tabs: { flexDirection: "row", backgroundColor: C.primarySoft, borderRadius: R.md, padding: 4, gap: 4, marginBottom: 14 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: R.sm, alignItems: "center" },
+  tabOn: { backgroundColor: C.white, ...SHADOW.soft },
   tabT: { fontSize: 13, color: C.inkSoft },
-  tabTOn: { color: C.ink, fontWeight: "600" },
+  tabTOn: { color: C.ink, fontWeight: "700" },
   input: {
-    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: C.ink, marginBottom: 10,
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
+    paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: C.ink, marginBottom: 10,
   },
   checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
   box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },

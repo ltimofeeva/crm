@@ -1,12 +1,15 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { C, SERIF } from "../theme";
+import { C, S, R, SHADOW, SERIF } from "../theme";
 
 // Значок «мозг» в правом верхнем углу экрана — открывает ассистента
 // с сохранёнными диалогами.
 export function BrainButton({ onPress }) {
   return (
-    <Pressable onPress={onPress} style={styles.brain}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.brain, pressed && { opacity: 0.85 }]}
+    >
       <Text style={{ fontSize: 18 }}>🧠</Text>
     </Pressable>
   );
@@ -20,7 +23,7 @@ export function Card({ children, style, onPress }) {
       style={({ pressed }) => [
         styles.card,
         style,
-        onPress && pressed ? { opacity: 0.85 } : null,
+        onPress && pressed ? { opacity: 0.9, transform: [{ scale: 0.995 }] } : null,
       ]}
     >
       {children}
@@ -39,7 +42,7 @@ export function Tag({ children, tone = "green" }) {
 
 export function H1({ children, sub }) {
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={{ marginBottom: S.lg }}>
       <Text style={[styles.h1, SERIF]}>{children}</Text>
       {sub ? <Text style={styles.sub}>{sub}</Text> : null}
     </View>
@@ -52,7 +55,12 @@ export function PrimaryButton({ title, onPress, icon, tone = "primary" }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.btn, { backgroundColor: bg, opacity: pressed ? 0.9 : 1 }]}
+      style={({ pressed }) => [
+        styles.btn,
+        { backgroundColor: bg },
+        tone !== "soft" && SHADOW.soft,
+        pressed && { opacity: 0.9 },
+      ]}
     >
       {icon}
       <Text style={[styles.btnText, { color: fg }]}>{title}</Text>
@@ -62,19 +70,24 @@ export function PrimaryButton({ title, onPress, icon, tone = "primary" }) {
 
 const styles = StyleSheet.create({
   brain: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: C.white,
+    width: 40, height: 40, borderRadius: R.pill, backgroundColor: C.white,
     borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center",
+    ...SHADOW.soft,
   },
   card: {
-    backgroundColor: C.white,
-    borderRadius: 16,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
     borderWidth: 1,
-    borderColor: C.line,
+    borderColor: C.lineSoft,
+    ...SHADOW.card,
   },
-  tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, alignSelf: "flex-start" },
-  tagText: { fontSize: 11 },
-  h1: { fontSize: 22, color: C.ink, lineHeight: 26 },
-  sub: { fontSize: 13, color: C.inkSoft, marginTop: 4 },
-  btn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
-  btnText: { fontSize: 13, fontWeight: "600" },
+  tag: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: R.pill, alignSelf: "flex-start" },
+  tagText: { fontSize: 11, fontWeight: "600" },
+  h1: { fontSize: 24, color: C.ink, lineHeight: 28, letterSpacing: -0.3 },
+  sub: { fontSize: 13, color: C.inkSoft, marginTop: 5, lineHeight: 18 },
+  btn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    paddingHorizontal: 16, paddingVertical: 11, borderRadius: R.md,
+  },
+  btnText: { fontSize: 13, fontWeight: "700" },
 });

@@ -29,6 +29,7 @@ const Stack = createNativeStackNavigator();
 const stackOptions = {
   headerShown: true, headerTintColor: C.ink,
   headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false,
+  headerTitleStyle: { fontWeight: "700", fontSize: 17, color: C.ink },
 };
 
 // Стек для вкладки «Клиенты»: список + карточка клиента.
@@ -80,8 +81,20 @@ function Tabs() {
         headerShown: false,
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.inkSoft,
-        tabBarStyle: { backgroundColor: C.white, borderTopColor: C.line, height: 64, paddingBottom: 8, paddingTop: 6 },
-        tabBarLabelStyle: { fontSize: 8.5, marginTop: 1 },
+        tabBarStyle: {
+          backgroundColor: C.white,
+          borderTopColor: C.lineSoft,
+          borderTopWidth: 1,
+          height: 66,
+          paddingBottom: 9,
+          paddingTop: 8,
+          shadowColor: "#1C2B23",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.04,
+          shadowRadius: 10,
+          elevation: 8,
+        },
+        tabBarLabelStyle: { fontSize: 9, fontWeight: "600", marginTop: 2 },
         tabBarIcon: ({ color }) => (
           <TabIcon route={route.name} color={color} size={23} />
         ),

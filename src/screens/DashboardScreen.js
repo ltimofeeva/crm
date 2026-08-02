@@ -244,9 +244,9 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 16, paddingBottom: 40 },
-  section: { fontSize: 12, fontWeight: "600", color: C.inkSoft, letterSpacing: 0.5, marginBottom: 8, marginTop: 8 },
-  row: { padding: 14, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+  wrap: { padding: 20, paddingBottom: 44 },
+  section: { fontSize: 11, fontWeight: "700", color: C.inkFaint, letterSpacing: 1, marginBottom: 10, marginTop: 12 },
+  row: { padding: 15, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
   time: { width: 52, alignItems: "center" },
   timeT: { fontSize: 15, fontWeight: "600", color: C.ink },
   dur: { fontSize: 10, color: C.inkSoft },
