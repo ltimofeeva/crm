@@ -259,7 +259,7 @@ export default function ClientDetailScreen({ route, navigation }) {
         <Card style={styles.analysis}><ActivityIndicator color={C.primary} /><Text style={styles.aLoad}>Ассистент читает заметки…</Text></Card>
       )}
       {aState === "error" && (
-        <Card style={styles.analysis}><Text style={{ color: C.accent, fontSize: 13 }}>Не удалось получить анализ. Проверьте, что бэкенд запущен.</Text></Card>
+        <Card style={styles.analysis}><Text style={{ color: C.danger, fontSize: 13 }}>Не удалось получить анализ. Проверьте, что бэкенд запущен.</Text></Card>
       )}
       {aState === "done" && analysis && (
         <Card style={styles.analysis}>

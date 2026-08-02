@@ -36,11 +36,13 @@ export function Card({ children, style, onPress }) {
   );
 }
 
+// tone="clay" — статусы, требующие внимания (пауза, регресс, остывший клиент).
+// Красим их приглушённым красным, обычные — синим.
 export function Tag({ children, tone = "green" }) {
   const clay = tone === "clay";
   return (
-    <View style={[styles.tag, { backgroundColor: clay ? C.accentSoft : C.primarySoft }]}>
-      <Text style={[styles.tagText, { color: clay ? C.accent : C.primary }]}>{children}</Text>
+    <View style={[styles.tag, { backgroundColor: clay ? C.dangerSoft : C.primarySoft }]}>
+      <Text style={[styles.tagText, { color: clay ? C.danger : C.primary }]}>{children}</Text>
     </View>
   );
 }

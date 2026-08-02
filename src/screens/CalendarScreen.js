@@ -391,8 +391,8 @@ export default function CalendarScreen({ navigation, route }) {
     return (
       // Нажатие на дату делает её первой в окне (13 → показываются 13/14/15).
       <Pressable key={iso} style={styles.dayHeadCell} onPress={() => setStartDate(iso)}>
-        <Text style={[styles.dayHeadWd, isToday && { color: C.accent }]}>{wd}</Text>
-        <Text style={[styles.dayHeadNum, SERIF, isToday && { color: C.accent }]}>{d.getDate()}</Text>
+        <Text style={[styles.dayHeadWd, isToday && { color: C.primary }]}>{wd}</Text>
+        <Text style={[styles.dayHeadNum, SERIF, isToday && { color: C.primary }]}>{d.getDate()}</Text>
         {!isWorkday(iso) && <Text style={styles.dayHeadOff}>вых.</Text>}
       </Pressable>
     );
@@ -427,7 +427,7 @@ export default function CalendarScreen({ navigation, route }) {
               </Text>
             </View>
             <Pressable onPress={cancelReschedule} style={{ padding: 6 }}>
-              <Text style={{ fontSize: 15, color: C.accent }}>✕</Text>
+              <Text style={{ fontSize: 15, color: C.inkSoft }}>✕</Text>
             </Pressable>
           </View>
         )}
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   dayHeadCell: { flex: 1, alignItems: "center" },
   dayHeadWd: { fontSize: 11, color: C.inkSoft },
   dayHeadNum: { fontSize: 18, color: C.ink },
-  dayHeadOff: { fontSize: 9, color: C.accent },
+  dayHeadOff: { fontSize: 9, color: C.inkFaint },
   grid: { flexDirection: "row", paddingHorizontal: 16 },
   hourLabelBox: { alignItems: "flex-start" },
   hourLabel: { fontSize: 10, color: C.inkSoft, marginTop: -6 },
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     position: "absolute", left: 3, right: 3, borderRadius: 8, padding: 4,
     backgroundColor: C.primarySoft, borderLeftWidth: 3, borderLeftColor: C.primary, overflow: "hidden",
   },
-  eventBoxOther: { backgroundColor: C.accentSoft, borderLeftColor: C.accent },
+  eventBoxOther: { backgroundColor: C.lineSoft, borderLeftColor: C.inkFaint },
   eventBoxTime: { fontSize: 9, color: C.inkSoft },
   eventBoxT: { fontSize: 11, fontWeight: "600", color: C.ink, lineHeight: 14 },
   eventBoxP: { fontSize: 9, color: C.inkSoft, marginTop: 1 },
@@ -749,13 +749,13 @@ const styles = StyleSheet.create({
   },
   resBanner: {
     flexDirection: "row", alignItems: "flex-start", gap: 8,
-    backgroundColor: C.accentSoft, borderRadius: 12, padding: 12, marginBottom: 10,
+    backgroundColor: C.primarySoft, borderRadius: 12, padding: 12, marginBottom: 10,
   },
-  resTitle: { fontSize: 13, fontWeight: "700", color: C.accent },
+  resTitle: { fontSize: 13, fontWeight: "700", color: C.primary },
   resText: { fontSize: 12, color: C.ink, lineHeight: 17, marginTop: 2 },
   rowInputs: { flexDirection: "row", gap: 8, alignItems: "center" },
   formError: { fontSize: 12, color: C.danger, marginBottom: 8 },
-  clearPeriod: { fontSize: 12, color: C.accent, fontWeight: "600", marginBottom: 8 },
+  clearPeriod: { fontSize: 12, color: C.danger, fontWeight: "600", marginBottom: 8 },
   // Обёртки полей с подсказками: список раскрывается ПОВЕРХ содержимого окна.
   fieldWrapHigh: { position: "relative", zIndex: 30 },
   fieldWrap: { position: "relative", zIndex: 20 },

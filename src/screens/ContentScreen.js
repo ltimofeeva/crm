@@ -116,7 +116,7 @@ export default function ContentScreen({ navigation }) {
       )}
       {genState === "error" && (
         <Card style={{ padding: 14, marginBottom: 8 }}>
-          <Text style={{ fontSize: 12, color: C.accent, fontWeight: "600" }}>Не получилось сгенерировать идеи.</Text>
+          <Text style={{ fontSize: 12, color: C.danger, fontWeight: "600" }}>Не получилось сгенерировать идеи.</Text>
           {genErr ? <Text style={{ fontSize: 11, color: C.inkSoft, marginTop: 6, lineHeight: 15 }}>{genErr}</Text> : null}
         </Card>
       )}
@@ -198,7 +198,7 @@ export default function ContentScreen({ navigation }) {
               </Pressable>
             )}
             <Pressable onPress={() => remove(it.id)} style={[styles.actionBtn, styles.actionBtnDanger]}>
-              <Text style={[styles.action, { color: C.accent }]}>Удалить</Text>
+              <Text style={[styles.action, { color: C.danger }]}>Удалить</Text>
             </Pressable>
           </View>
         </Card>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
   },
-  actionBtnDanger: { borderColor: C.accent, backgroundColor: C.accentSoft },
+  actionBtnDanger: { borderColor: C.danger, backgroundColor: C.dangerSoft },
   action: { fontSize: 12, color: C.primary, fontWeight: "600" },
   textPreview: { backgroundColor: C.bg, borderRadius: 10, padding: 10, marginTop: 8 },
   textPreviewT: { fontSize: 12, color: C.ink, lineHeight: 17 },

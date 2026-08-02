@@ -102,8 +102,8 @@ export default function PaywallScreen({ navigation }) {
         </Card>
       )}
       {tier === "none" && (
-        <Card style={[styles.notice, { backgroundColor: C.accentSoft, borderColor: C.accentSoft }]}>
-          <Text style={[styles.noticeText, { color: C.accent }]}>
+        <Card style={[styles.notice, { backgroundColor: C.dangerSoft, borderColor: C.dangerSoft }]}>
+          <Text style={[styles.noticeText, { color: C.danger }]}>
             Бесплатный период завершён. Оформите подписку, чтобы продолжить работу.
           </Text>
         </Card>

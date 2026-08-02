@@ -194,7 +194,7 @@ export default function AnalyticsScreen({ navigation }) {
           )}
           {remState === "error" && (
             <Card style={{ padding: 14, marginTop: 12 }}>
-              <Text style={{ fontSize: 12, color: C.accent }}>Не удалось выполнить анализ. Попробуйте ещё раз.</Text>
+              <Text style={{ fontSize: 12, color: C.danger }}>Не удалось выполнить анализ. Попробуйте ещё раз.</Text>
             </Card>
           )}
           {remState !== "loading" && reminders.length === 0 && (
