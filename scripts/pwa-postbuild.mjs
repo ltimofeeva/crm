@@ -185,6 +185,20 @@ html = html.replace(
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />',
 );
 
+// Высота на мобильных браузерах.
+// height:100% в Safari на iPhone считается от «большого» экрана — без
+// нижней панели браузера. Из-за этого низ приложения (подписи вкладок)
+// уезжал под панель Safari и обрезался. Единица dvh отслеживает реально
+// видимую высоту, поэтому нижнее меню всегда помещается целиком.
+const fitHeight = `
+    <style id="expertos-viewport-fit">
+      html, body, #root { height: 100dvh; }
+    </style>
+  `;
+if (!html.includes("expertos-viewport-fit")) {
+  html = html.replace("</head>", `${fitHeight}</head>`);
+}
+
 fs.writeFileSync(htmlPath, html);
 
 console.log("PWA-постобработка готова:", PUBLIC_DIR);

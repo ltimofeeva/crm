@@ -85,8 +85,8 @@ function Tabs() {
           backgroundColor: C.white,
           borderTopColor: C.lineSoft,
           borderTopWidth: 1,
-          height: 66,
-          paddingBottom: 9,
+          height: 72,
+          paddingBottom: 14,
           paddingTop: 8,
           shadowColor: "#1C2B23",
           shadowOffset: { width: 0, height: -3 },
@@ -94,7 +94,9 @@ function Tabs() {
           shadowRadius: 10,
           elevation: 8,
         },
-        tabBarLabelStyle: { fontSize: 9, fontWeight: "600", marginTop: 2 },
+        // lineHeight обязателен: без него у букв с «хвостиками» (д, у, р)
+        // обрезается низ.
+        tabBarLabelStyle: { fontSize: 9, lineHeight: 13, fontWeight: "600", marginTop: 2 },
         tabBarIcon: ({ color }) => (
           <TabIcon route={route.name} color={color} size={23} />
         ),
