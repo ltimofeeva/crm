@@ -11,8 +11,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   register, login, userIdByToken, revokeToken, getData, setData,
   subscriptionFor, checkAiAllowed, addUsage, setPlan,
+  ensureSlug, userBySlug,
 } from "./db.js";
 import { planList } from "./plans.js";
+import {
+  freeSlots, createBooking, pendingBookings, ackBookings,
+  bookingSettings, onlineProducts,
+} from "./booking.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -68,6 +73,104 @@ app.get("/api/data", requireAuth, (req, res) => {
 app.put("/api/data", requireAuth, (req, res) => {
   setData(req.userId, (req.body && req.body.data) || {});
   res.json({ ok: true });
+});
+
+// ---------- Онлайн-запись ----------
+
+// Простое ограничение частоты для публичных адресов: страница открыта всем,
+// без него календарь можно забить ложными записями.
+const hits = new Map();
+function rateLimit(key, limit, windowMs) {
+  const now = Date.now();
+  const rec = hits.get(key);
+  if (!rec || now > rec.reset) {
+    hits.set(key, { count: 1, reset: now + windowMs });
+    return true;
+  }
+  if (rec.count >= limit) return false;
+  rec.count++;
+  return true;
+}
+// Раз в час подчищаем счётчики, чтобы карта не росла бесконечно.
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
+}, 3600000).unref?.();
+
+const clientIp = (req) =>
+  (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "?";
+
+// Ссылка специалиста на свою страницу записи.
+app.get("/api/booking/link", requireAuth, (req, res) => {
+  const slug = ensureSlug(req.userId);
+  res.json({ slug, path: `/z/${slug}` });
+});
+
+// Брони, которые приложение ещё не забрало.
+app.get("/api/booking/pending", requireAuth, (req, res) => {
+  res.json({ bookings: pendingBookings(req.userId) });
+});
+
+// Приложение сообщает, что перенесло брони в календарь.
+app.post("/api/booking/ack", requireAuth, (req, res) => {
+  res.json(ackBookings(req.userId, (req.body && req.body.ids) || []));
+});
+
+// --- Публичные адреса (без входа) ---
+
+// Данные страницы записи: имя специалиста и доступные услуги.
+app.get("/api/z/:slug", (req, res) => {
+  if (!rateLimit(`p:${clientIp(req)}`, 120, 60000)) {
+    return res.status(429).json({ error: "Слишком часто. Подождите минуту." });
+  }
+  const u = userBySlug(req.params.slug);
+  if (!u) return res.status(404).json({ error: "Страница записи не найдена." });
+  const data = getData(u.id);
+  const settings = bookingSettings(data);
+  if (!settings.enabled) {
+    return res.status(404).json({ error: "Онлайн-запись сейчас отключена." });
+  }
+  // Логин специалиста (телефон/почта) наружу не отдаём — только то, что он
+  // сам написал о себе.
+  const profile = data?.profile || {};
+  res.json({
+    about: profile.activity || "",
+    note: settings.note || "",
+    tz: settings.tz || "",
+    products: onlineProducts(data),
+  });
+});
+
+// Свободные окошки под выбранную услугу.
+app.get("/api/z/:slug/slots", (req, res) => {
+  if (!rateLimit(`s:${clientIp(req)}`, 120, 60000)) {
+    return res.status(429).json({ error: "Слишком часто. Подождите минуту." });
+  }
+  const u = userBySlug(req.params.slug);
+  if (!u) return res.status(404).json({ error: "Страница записи не найдена." });
+  const r = freeSlots(u.id, req.query.productId);
+  if (r.error) return res.status(400).json(r);
+  res.json({ days: r.days, product: r.product });
+});
+
+// Запись клиента.
+app.post("/api/z/:slug/book", (req, res) => {
+  const ip = clientIp(req);
+  if (!rateLimit(`b:${ip}`, 5, 3600000)) {
+    return res.status(429).json({
+      error: "С этого устройства уже сделано несколько записей. Попробуйте позже или напишите специалисту.",
+    });
+  }
+  const u = userBySlug(req.params.slug);
+  if (!u) return res.status(404).json({ error: "Страница записи не найдена." });
+  const r = createBooking(u.id, req.body || {});
+  if (r.error) return res.status(400).json(r);
+  res.json({ ok: true, booking: r.booking });
+});
+
+// Сама страница записи.
+app.get("/z/:slug", (_req, res) => {
+  res.sendFile(path.join(__dirname, "booking-page.html"));
 });
 
 // ---------- Тарифы и подписка ----------

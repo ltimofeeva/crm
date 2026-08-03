@@ -21,6 +21,7 @@ const KEYS = {
   reminders: "practice.reminders.v1",
   chats: "practice.chats.v1",
   blocks: "practice.blocks.v1",
+  booking: "practice.booking.v1",
   installedAt: "practice.installedAt.v1",
 };
 
@@ -28,7 +29,7 @@ const KEYS = {
 // первого запуска, которая привязана к устройству).
 const SYNC_NAMES = [
   "clients", "events", "products", "profile", "content",
-  "schedule", "reminders", "chats", "blocks",
+  "schedule", "reminders", "chats", "blocks", "booking",
 ];
 
 // ---------- Синхронизация с сервером ----------
@@ -307,6 +308,33 @@ export async function addProduct({ name, durationMin, price, about }) {
 export async function deleteProduct(id) {
   const products = await getProducts();
   await write(KEYS.products, products.filter((p) => p.id !== id));
+}
+
+export async function updateProduct(id, patch) {
+  const products = await getProducts();
+  await write(KEYS.products, products.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+}
+
+// ---------- Онлайн-запись ----------
+// Настройки видит сервер (он считает свободные окошки), поэтому лежат
+// в общем наборе данных и синхронизируются как всё остальное.
+
+export async function getBookingSettings() {
+  const def = {
+    enabled: false,
+    stepMin: 60,
+    bufferMin: 0,
+    minLeadHours: 3,
+    maxDaysAhead: 30,
+    tz: "",
+    note: "",
+  };
+  const saved = await read(KEYS.booking, null);
+  return { ...def, ...(saved || {}) };
+}
+
+export async function saveBookingSettings(s) {
+  await write(KEYS.booking, s);
 }
 
 // ---------- Профиль специалиста («О себе») ----------

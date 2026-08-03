@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Онлайн-запись</title>
+<style>
+  :root{
+    --bg:#F2F5F8; --surface:#fff; --ink:#1E2A38; --inkSoft:#5A6B7D; --inkFaint:#7C8CA0;
+    --primary:#2B5578; --primarySoft:#E3EBF2; --accent:#1E3A57;
+    --line:#E4EAF0; --lineSoft:#EFF3F7; --danger:#C0544C; --dangerSoft:#F6E4E2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:24px 20px 48px}
+  h1{font-size:24px; margin:0 0 6px; letter-spacing:-.3px}
+  .sub{color:var(--inkSoft); font-size:14px; margin:0 0 22px}
+  .card{
+    background:var(--surface); border:1px solid var(--lineSoft); border-radius:18px;
+    padding:18px; margin-bottom:14px; box-shadow:0 6px 16px rgba(22,32,43,.06);
+  }
+  .step{font-size:11px; font-weight:700; letter-spacing:1px; color:var(--inkFaint);
+    text-transform:uppercase; margin:22px 0 10px}
+  .opt{
+    display:block; width:100%; text-align:left; background:var(--surface);
+    border:1px solid var(--line); border-radius:14px; padding:14px 16px;
+    margin-bottom:10px; cursor:pointer; font:inherit; color:inherit;
+  }
+  .opt:hover{border-color:var(--primary)}
+  .opt.on{border-color:var(--primary); border-width:2px; background:var(--primarySoft)}
+  .opt b{display:block; font-size:15px}
+  .opt span{display:block; color:var(--inkSoft); font-size:13px; margin-top:2px}
+  .days{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch}
+  .day{
+    flex:0 0 auto; min-width:70px; text-align:center; background:var(--surface);
+    border:1px solid var(--line); border-radius:14px; padding:10px 8px; cursor:pointer;
+    font:inherit; color:inherit;
+  }
+  .day.on{border-color:var(--primary); border-width:2px; background:var(--primarySoft)}
+  .day i{display:block; font-style:normal; font-size:11px; color:var(--inkSoft)}
+  .day b{display:block; font-size:18px; margin-top:2px}
+  .slots{display:flex; flex-wrap:wrap; gap:8px}
+  .slot{
+    background:var(--surface); border:1px solid var(--line); border-radius:999px;
+    padding:10px 16px; cursor:pointer; font:inherit; color:inherit; font-size:15px;
+  }
+  .slot.on{background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600}
+  label{display:block; font-size:12px; color:var(--inkSoft); margin:12px 0 5px}
+  input[type=text]{
+    width:100%; background:var(--bg); border:1px solid var(--line); border-radius:14px;
+    padding:13px 14px; font:inherit; color:var(--ink);
+  }
+  input[type=text]:focus{outline:none; border-color:var(--primary)}
+  .via{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px}
+  .check{display:flex; gap:10px; align-items:flex-start; margin:16px 0; font-size:13px; color:var(--ink)}
+  .check input{margin-top:2px; width:18px; height:18px; flex:0 0 auto}
+  button.go{
+    width:100%; background:var(--accent); color:#fff; border:0; border-radius:14px;
+    padding:15px; font:inherit; font-size:16px; font-weight:700; cursor:pointer; margin-top:6px;
+  }
+  button.go:disabled{opacity:.45; cursor:default}
+  .err{background:var(--dangerSoft); color:var(--danger); border-radius:12px;
+    padding:12px 14px; font-size:13px; margin:12px 0}
+  .muted{color:var(--inkSoft); font-size:13px}
+  .ok{text-align:center; padding:14px 0}
+  .ok .tick{font-size:44px}
+  .ok h2{margin:8px 0 6px; font-size:20px}
+  .row{display:flex; justify-content:space-between; gap:12px; padding:9px 0;
+    border-bottom:1px solid var(--lineSoft); font-size:14px}
+  .row:last-child{border-bottom:0}
+  .row span{color:var(--inkSoft)}
+  .row b{font-weight:600; text-align:right}
+  .center{text-align:center; color:var(--inkSoft); padding:26px 0; font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="center">Загружаем…</div></div>
+
+<script>
+(function () {
+  var slug = location.pathname.split("/").filter(Boolean)[1] || "";
+  var app = document.getElementById("app");
+  var info = null;      // услуги и подписи
+  var product = null;   // выбранная услуга
+  var days = [];        // свободные дни с окошками
+  var date = null, time = null;
+  var via = "Телеграм";
+  var busy = false, error = "";
+
+  var MON = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var WD = ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function dayParts(iso) {
+    var p = iso.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return { wd: WD[d.getDay()], num: d.getDate(), mon: MON[d.getMonth()], short: WD[d.getDay()].slice(0, 2) };
+  }
+  function money(n) { return n ? n.toLocaleString("ru-RU") + " ₽" : ""; }
+
+  function get(url) {
+    return fetch(url).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error || "Ошибка сервера");
+        return j;
+      });
+    });
+  }
+
+  function fail(msg) {
+    app.innerHTML = '<div class="card"><div class="err">' + esc(msg) + "</div></div>";
+  }
+
+  // ---------- Экраны ----------
+
+  function render() {
+    var h = "";
+    h += "<h1>Онлайн-запись</h1>";
+    h += '<p class="sub">' + esc(info.about || "Выберите услугу и удобное время") + "</p>";
+    if (info.note) h += '<div class="card muted">' + esc(info.note) + "</div>";
+    if (error) h += '<div class="err">' + esc(error) + "</div>";
+
+    h += '<div class="step">1. Услуга</div>';
+    info.products.forEach(function (p) {
+      var meta = p.durationMin + " мин" + (p.price ? " · " + money(p.price) : "");
+      h += '<button class="opt' + (product && product.id === p.id ? " on" : "") + '" data-p="' + esc(p.id) + '">' +
+        "<b>" + esc(p.name) + "</b><span>" + esc(meta) +
+        (p.description ? " — " + esc(p.description) : "") + "</span></button>";
+    });
+
+    if (product) {
+      h += '<div class="step">2. Дата и время' + (info.tz ? " · " + esc(info.tz) : "") + "</div>";
+      if (!days.length) {
+        h += '<div class="card muted">Свободных окошек пока нет. Загляните позже или напишите специалисту.</div>';
+      } else {
+        h += '<div class="days">';
+        days.forEach(function (d) {
+          var p = dayParts(d.date);
+          h += '<button class="day' + (date === d.date ? " on" : "") + '" data-d="' + d.date + '">' +
+            "<i>" + p.short + "</i><b>" + p.num + "</b><i>" + p.mon.slice(0, 3) + "</i></button>";
+        });
+        h += "</div>";
+        var sel = days.filter(function (d) { return d.date === date; })[0];
+        if (sel) {
+          h += '<div style="margin-top:14px"></div><div class="slots">';
+          sel.slots.forEach(function (t) {
+            h += '<button class="slot' + (time === t ? " on" : "") + '" data-t="' + t + '">' + t + "</button>";
+          });
+          h += "</div>";
+        }
+      }
+    }
+
+    if (product && date && time) {
+      h += '<div class="step">3. Ваши контакты</div><div class="card">';
+      h += "<label>Как вас зовут</label>";
+      h += '<input type="text" id="nm" placeholder="Имя и фамилия" autocomplete="name" />';
+      h += "<label>Куда написать</label>";
+      h += '<div class="via">';
+      ["Телеграм", "ВК", "МАКС", "По телефону"].forEach(function (v) {
+        h += '<button class="slot' + (via === v ? " on" : "") + '" data-v="' + esc(v) + '">' + esc(v) + "</button>";
+      });
+      h += "</div>";
+      h += '<input type="text" id="ct" placeholder="Телефон или ник" autocomplete="tel" style="margin-top:8px" />';
+      h += '<div class="check"><input type="checkbox" id="ag" />' +
+        "<span>Я согласен(на) на обработку моих персональных данных для записи на приём</span></div>";
+      h += '<button class="go" id="send"' + (busy ? " disabled" : "") + ">" +
+        (busy ? "Записываем…" : "Записаться") + "</button>";
+      h += "</div>";
+    }
+    app.innerHTML = h;
+  }
+
+  function done(b) {
+    var p = dayParts(b.date);
+    var h = '<div class="card ok"><div class="tick">✅</div><h2>Вы записаны</h2>' +
+      '<p class="muted">Специалист увидит вашу запись. Если планы изменятся — напишите ему.</p></div>';
+    h += '<div class="card">';
+    h += '<div class="row"><span>Услуга</span><b>' + esc(b.productName) + "</b></div>";
+    h += '<div class="row"><span>Когда</span><b>' + p.num + " " + p.mon + ", " + esc(b.time) + "</b></div>";
+    h += '<div class="row"><span>Длительность</span><b>' + b.durationMin + " мин</b></div>";
+    if (b.price) h += '<div class="row"><span>Стоимость</span><b>' + money(b.price) + "</b></div>";
+    h += '<div class="row"><span>Вы</span><b>' + esc(b.clientName) + "</b></div>";
+    h += "</div>";
+    app.innerHTML = h;
+  }
+
+  // ---------- Действия ----------
+
+  function loadSlots() {
+    days = []; date = null; time = null;
+    render();
+    get("/api/z/" + encodeURIComponent(slug) + "/slots?productId=" + encodeURIComponent(product.id))
+      .then(function (r) {
+        days = r.days || [];
+        if (days.length) date = days[0].date;
+        error = "";
+        render();
+      })
+      .catch(function (e) { error = e.message; render(); });
+  }
+
+  function send() {
+    var nm = document.getElementById("nm").value.trim();
+    var ct = document.getElementById("ct").value.trim();
+    var ag = document.getElementById("ag").checked;
+    if (nm.length < 2) { error = "Напишите, пожалуйста, как вас зовут."; return render(); }
+    if (ct.length < 5) { error = "Укажите телефон или ник, чтобы с вами связались."; return render(); }
+    if (!ag) { error = "Отметьте согласие на обработку персональных данных."; return render(); }
+    error = ""; busy = true; render();
+
+    fetch("/api/z/" + encodeURIComponent(slug) + "/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: product.id, date: date, time: time, name: nm, contact: ct, contactVia: via })
+    })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Не удалось записаться"); return j; }); })
+      .then(function (j) { done(j.booking); })
+      .catch(function (e) {
+        busy = false; error = e.message;
+        // Время могли занять, пока клиент заполнял форму — обновляем окошки.
+        loadSlots();
+      });
+  }
+
+  // Клики: один обработчик на весь экран, чтобы не терять их при перерисовке.
+  app.addEventListener("click", function (ev) {
+    var t = ev.target.closest("button");
+    if (!t) return;
+    if (t.dataset.p) {
+      product = info.products.filter(function (x) { return String(x.id) === t.dataset.p; })[0];
+      return loadSlots();
+    }
+    if (t.dataset.d) { date = t.dataset.d; time = null; return render(); }
+    if (t.dataset.t) { time = t.dataset.t; return render(); }
+    if (t.dataset.v) { via = t.dataset.v; return render(); }
+    if (t.id === "send") return send();
+  });
+
+  // Поля ввода не должны сбрасываться при перерисовке — сохраняем значения.
+  app.addEventListener("input", function (ev) {
+    if (ev.target.id === "nm" || ev.target.id === "ct") ev.target.setAttribute("value", ev.target.value);
+  });
+
+  get("/api/z/" + encodeURIComponent(slug))
+    .then(function (r) {
+      info = r;
+      if (!info.products.length) return fail("Специалист пока не открыл ни одной услуги для онлайн-записи.");
+      render();
+    })
+    .catch(function (e) { fail(e.message); });
+})();
+</script>
+</body>
+</html>

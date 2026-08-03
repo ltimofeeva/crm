@@ -130,6 +130,31 @@ export function setData(userId, data) {
   fs.writeFileSync(f, JSON.stringify(data || {}));
 }
 
+// ---- Ссылка на онлайн-запись ----
+
+// Короткий адрес вида /z/ab12cd34. Выдаётся один раз и больше не меняется:
+// специалист уже разослал ссылку клиентам, и она должна работать всегда.
+export function ensureSlug(userId) {
+  const db = readUsers();
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) return null;
+  if (!user.slug) {
+    let slug;
+    do { slug = crypto.randomBytes(4).toString("hex"); }
+    while (db.users.some((u) => u.slug === slug));
+    user.slug = slug;
+    writeUsers(db);
+  }
+  return user.slug;
+}
+
+export function userBySlug(slug) {
+  if (!slug) return null;
+  const db = readUsers();
+  const u = db.users.find((x) => x.slug === String(slug).toLowerCase());
+  return u ? { id: u.id, display: u.display } : null;
+}
+
 // ---- Тариф и расход ИИ ----
 
 function currentMonth() {

@@ -14,6 +14,7 @@ import {
 import { buildFullContext, fetchReminders, messagePreset } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 import { birthdayStatus, yearsWord } from "../utils/birthday";
+import { syncBookings } from "../api/bookings";
 
 function todayTitle() {
   const s = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
@@ -46,6 +47,8 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const load = useCallback(async () => {
+    // Новые онлайн-записи клиентов попадают в ленту дня сразу.
+    await syncBookings();
     const cls = await getClients();
     setClients(cls);
     setEvents(await getEvents());

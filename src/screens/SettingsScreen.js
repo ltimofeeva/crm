@@ -5,11 +5,15 @@ import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { confirmAsync } from "../utils/confirm";
 import { useFocusEffect } from "@react-navigation/native";
-import { C } from "../theme";
+import { C, R } from "../theme";
 import { Card, Tag, H1, PrimaryButton, BrainButton } from "../components/ui";
 import {
-  getProducts, addProduct, deleteProduct, getProfile, saveProfile, clearAllData,
+  getProducts, addProduct, deleteProduct, updateProduct,
+  getProfile, saveProfile, clearAllData,
+  getBookingSettings, saveBookingSettings,
 } from "../storage/store";
+import { fetchBookingLink } from "../api/bookings";
+import * as Clipboard from "expo-clipboard";
 import { UNPACK_PROMPT } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useAuth } from "../context/AuthContext";
@@ -25,10 +29,15 @@ export default function SettingsScreen({ navigation, route }) {
   const [prodOpen, setProdOpen] = useState(false);
   const [prod, setProd] = useState(EMPTY_PRODUCT);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [booking, setBooking] = useState(null);
+  const [bookingLink, setBookingLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const load = useCallback(async () => {
     setProducts(await getProducts());
     setProfile(await getProfile());
+    setBooking(await getBookingSettings());
+    try { setBookingLink(await fetchBookingLink()); } catch (e) { /* нет связи */ }
     // Пришли из календаря с новым продуктом — открываем форму с именем.
     const newProductName = route.params?.newProductName;
     if (newProductName) {
@@ -48,6 +57,37 @@ export default function SettingsScreen({ navigation, route }) {
     setProd(EMPTY_PRODUCT);
     setProdOpen(false);
     load();
+  };
+
+  // Часовой пояс запоминаем при включении: клиенту показываем время
+  // специалиста и подписываем пояс, чтобы никто не перепутал.
+  const toggleBooking = async () => {
+    const next = { ...booking, enabled: !booking.enabled };
+    if (next.enabled && !next.tz) {
+      try { next.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    }
+    setBooking(next);
+    await saveBookingSettings(next);
+    if (next.enabled && !bookingLink) {
+      try { setBookingLink(await fetchBookingLink()); } catch (e) {}
+    }
+  };
+
+  const setBk = async (key, value) => {
+    const next = { ...booking, [key]: value };
+    setBooking(next);
+    await saveBookingSettings(next);
+  };
+
+  const fullLink = bookingLink
+    ? (typeof window !== "undefined" && window.location ? window.location.origin : "") + bookingLink
+    : "";
+
+  const copyLink = async () => {
+    if (!fullLink) return;
+    await Clipboard.setStringAsync(fullLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1800);
   };
 
   const removeProduct = async (p) => {
@@ -103,6 +143,15 @@ export default function SettingsScreen({ navigation, route }) {
               {p.durationMin} мин{p.price ? ` · ${p.price.toLocaleString("ru-RU")} ₽` : ""}
             </Text>
             {p.about ? <Text style={styles.prodAbout}>{p.about}</Text> : null}
+            <Pressable
+              onPress={async () => { await updateProduct(p.id, { online: !p.online }); load(); }}
+              style={styles.onlineRow}
+            >
+              <View style={[styles.box, p.online && styles.boxOn]}>
+                {p.online ? <Text style={styles.boxTick}>✓</Text> : null}
+              </View>
+              <Text style={styles.onlineT}>Доступна для онлайн-записи</Text>
+            </Pressable>
           </View>
           <Pressable onPress={() => removeProduct(p)}><Text style={styles.del}>✕</Text></Pressable>
         </Card>
@@ -184,6 +233,100 @@ export default function SettingsScreen({ navigation, route }) {
         <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить особенности"} tone="accent" onPress={persistProfile} />
       </Card>
 
+      <Text style={styles.section}>ОНЛАЙН-ЗАПИСЬ</Text>
+      {booking && (
+        <Card style={styles.form}>
+          <Pressable onPress={toggleBooking} style={styles.onlineRow}>
+            <View style={[styles.box, booking.enabled && styles.boxOn]}>
+              {booking.enabled ? <Text style={styles.boxTick}>✓</Text> : null}
+            </View>
+            <Text style={styles.bkTitle}>Клиенты могут записываться сами</Text>
+          </Pressable>
+
+          {booking.enabled ? (
+            <>
+              <Text style={styles.bkLabel}>Ссылка для клиентов</Text>
+              {bookingLink ? (
+                <>
+                  <Pressable onPress={copyLink} style={styles.linkBox}>
+                    <Text style={styles.linkT} numberOfLines={1}>{fullLink}</Text>
+                  </Pressable>
+                  <PrimaryButton
+                    title={linkCopied ? "Ссылка скопирована ✓" : "Скопировать ссылку"}
+                    tone="soft"
+                    onPress={copyLink}
+                  />
+                </>
+              ) : (
+                <Text style={styles.hint}>Ссылка появится, когда будет связь с сервером.</Text>
+              )}
+
+              <Text style={styles.bkLabel}>Шаг окошек</Text>
+              <View style={styles.chipsRow}>
+                {[30, 60].map((v) => (
+                  <Pressable key={v} onPress={() => setBk("stepMin", v)} style={[styles.chip, booking.stepMin === v && styles.chipOn]}>
+                    <Text style={[styles.chipT, booking.stepMin === v && styles.chipTOn]}>{v} мин</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.bkLabel}>Перерыв между встречами</Text>
+              <View style={styles.chipsRow}>
+                {[0, 10, 15, 30].map((v) => (
+                  <Pressable key={v} onPress={() => setBk("bufferMin", v)} style={[styles.chip, booking.bufferMin === v && styles.chipOn]}>
+                    <Text style={[styles.chipT, booking.bufferMin === v && styles.chipTOn]}>
+                      {v ? `${v} мин` : "без"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.bkLabel}>Записаться можно не позже чем за</Text>
+              <View style={styles.chipsRow}>
+                {[1, 3, 12, 24].map((v) => (
+                  <Pressable key={v} onPress={() => setBk("minLeadHours", v)} style={[styles.chip, booking.minLeadHours === v && styles.chipOn]}>
+                    <Text style={[styles.chipT, booking.minLeadHours === v && styles.chipTOn]}>{v} ч</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.bkLabel}>Открыть календарь вперёд на</Text>
+              <View style={styles.chipsRow}>
+                {[7, 14, 30, 60].map((v) => (
+                  <Pressable key={v} onPress={() => setBk("maxDaysAhead", v)} style={[styles.chip, booking.maxDaysAhead === v && styles.chipOn]}>
+                    <Text style={[styles.chipT, booking.maxDaysAhead === v && styles.chipTOn]}>{v} дн.</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.bkLabel}>Подсказка клиенту (необязательно)</Text>
+              <TextInput
+                value={booking.note}
+                onChangeText={(v) => setBk("note", v)}
+                multiline
+                placeholder="Например: перед первой встречей я коротко созваниваюсь"
+                placeholderTextColor={C.inkSoft}
+                style={[styles.input, styles.textarea]}
+              />
+
+              <Text style={styles.hint}>
+                Окошки выдаются только на рабочие часы из графика (белое время
+                в календаре) и только по услугам, отмеченным галочкой выше.
+                Занятое время, свои дела и перерывы учитываются автоматически.
+                Время показывается клиенту по вашему часовому поясу
+                {booking.tz ? ` (${booking.tz})` : ""}.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.hint}>
+              Включите — и появится ссылка, которую можно отправить клиентам.
+              Они выберут услугу и свободное время, запись сразу появится
+              в вашем календаре.
+            </Text>
+          )}
+        </Card>
+      )}
+
       <Text style={styles.section}>ТАРИФ</Text>
       <Card style={styles.subRow} onPress={() => navigation.navigate("Paywall")}>
         <View style={{ flex: 1 }}>
@@ -240,6 +383,30 @@ const styles = StyleSheet.create({
   voiceHint: { fontSize: 12, color: C.inkSoft, lineHeight: 17, marginBottom: 10 },
   topRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   hint: { fontSize: 11, color: C.inkSoft, marginTop: 10, lineHeight: 15 },
+  // Онлайн-запись
+  onlineRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  onlineT: { fontSize: 12, color: C.inkSoft },
+  box: {
+    width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: C.line,
+    alignItems: "center", justifyContent: "center", backgroundColor: C.bg,
+  },
+  boxOn: { backgroundColor: C.primary, borderColor: C.primary },
+  boxTick: { color: C.white, fontSize: 12, fontWeight: "700" },
+  bkTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
+  bkLabel: { fontSize: 12, color: C.inkSoft, marginTop: 16, marginBottom: 6 },
+  linkBox: {
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
+    paddingHorizontal: 12, paddingVertical: 11, marginBottom: 8,
+  },
+  linkT: { fontSize: 13, color: C.primary, fontWeight: "600" },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.pill,
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
+  },
+  chipOn: { backgroundColor: C.primary, borderColor: C.primary },
+  chipT: { fontSize: 12, color: C.ink },
+  chipTOn: { color: C.white },
   unpack: { padding: 16, marginTop: 12, backgroundColor: C.primarySoft, borderColor: C.primarySoft },
   unpackTitle: { fontSize: 15, fontWeight: "600", color: C.primary },
   unpackText: { fontSize: 13, color: C.ink, lineHeight: 19, marginTop: 6 },

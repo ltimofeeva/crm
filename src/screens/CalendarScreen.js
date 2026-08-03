@@ -19,6 +19,7 @@ import {
   WD, dateKey, addDays, showDate, toMin, maskTime, validTime, normalizeTime,
 } from "../utils/datetime";
 import MiniCalendar from "../components/MiniCalendar";
+import { syncBookings } from "../api/bookings";
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Пн..Вс в терминах getDay()
 const HOUR_H = 56;   // высота часа в пикселях
@@ -78,6 +79,8 @@ export default function CalendarScreen({ navigation, route }) {
   const [pickerFor, setPickerFor] = useState(null);
 
   const load = useCallback(async () => {
+    // Сначала забираем онлайн-записи клиентов, чтобы они сразу были в сетке.
+    await syncBookings();
     const evs = await getEvents();
     setEvents(evs);
     setClients(await getClients());
