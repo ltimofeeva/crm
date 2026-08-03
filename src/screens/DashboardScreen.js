@@ -206,10 +206,10 @@ export default function DashboardScreen({ navigation }) {
             <Card style={{ padding: 14 }}>
               <Text style={styles.remEmpty}>
                 Напоминания, с кем связаться и что предложить, составляет
-                ИИ-ассистент — это часть подписки «Помощник Про».
+                ИИ-ассистент входит в платные тарифы.
               </Text>
               <View style={{ marginTop: 10, alignSelf: "flex-start" }}>
-                <PrimaryButton title="Подробнее о подписке" tone="soft" onPress={() => navigation.navigate("Paywall")} />
+                <PrimaryButton title="Посмотреть тарифы" tone="soft" onPress={() => navigation.navigate("Paywall")} />
               </View>
             </Card>
           )}

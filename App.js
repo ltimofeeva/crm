@@ -151,7 +151,7 @@ function AppNavigator() {
           <Stack.Screen
             name="Paywall"
             component={PaywallScreen}
-            options={{ title: "Подписка", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
+            options={{ title: "Тарифы", presentation: "modal", headerTintColor: C.ink, headerStyle: { backgroundColor: C.bg }, headerShadowVisible: false }}
           />
         </>
       )}

@@ -3,6 +3,7 @@
 // Так ключ никогда не попадает в телефон. См. SECURITY.md.
 
 import { BACKEND_URL } from "../config";
+import { getApiToken } from "./backend";
 import {
   getClients, getEvents, getProducts, getProfile, getContent,
 } from "../storage/store";
@@ -101,15 +102,33 @@ export async function buildContext() {
 export async function sendChat({ messages, system }) {
   // Короткое имя сервера для понятных сообщений об ошибке.
   const host = BACKEND_URL.replace(/^https?:\/\//, "");
+  const token = getApiToken();
   let res;
   try {
     res = await fetch(`${BACKEND_URL}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ messages, system }),
     });
   } catch (netErr) {
     throw new Error(`Не удалось соединиться с сервером ${host}. Проверьте интернет. (${netErr?.message || netErr})`);
+  }
+  // 402 — тариф не позволяет или закончился лимит. Показываем текст сервера
+  // как есть: он написан для человека.
+  if (res.status === 402) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || "ИИ недоступен на текущем тарифе.");
+    err.code = "limit";
+    err.reason = data.reason;
+    throw err;
+  }
+  if (res.status === 401) {
+    const err = new Error("Похоже, вы вышли из аккаунта. Войдите снова.");
+    err.code = "unauthorized";
+    throw err;
   }
   if (!res.ok) {
     let body = "";

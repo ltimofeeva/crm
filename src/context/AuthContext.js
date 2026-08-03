@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  apiRegister, apiLogin, apiLogout, apiGetData,
+  apiRegister, apiLogin, apiLogout, apiGetData, setApiToken,
 } from "../api/backend";
 import {
   setSyncToken, importAll, clearUserData, pushAllNow,
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
       try {
         const session = await readSession();
         if (session?.token) {
-          setSyncToken(session.token);
+          setSyncToken(session.token); setApiToken(session.token);
           setUser(session.user);
           try {
             const data = await apiGetData(session.token);
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
           } catch (e) {
             if (e.message === "unauthorized") {
               // Токен больше не действует — выходим.
-              setSyncToken(null);
+              setSyncToken(null); setApiToken(null);
               await clearSession();
               await clearUserData();
               setUser(null);
@@ -72,7 +72,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async ({ login, password, remember }) => {
     try {
       const { token, user: u } = await apiLogin(login, password);
-      setSyncToken(token);
+      setSyncToken(token); setApiToken(token);
       // Загружаем данные аккаунта с сервера (заменяют локальные).
       try {
         const data = await apiGetData(token);
@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
   const signUp = useCallback(async ({ login, password, remember }) => {
     try {
       const { token, user: u } = await apiRegister(login, password);
-      setSyncToken(token);
+      setSyncToken(token); setApiToken(token);
       // Новый аккаунт: переносим на сервер уже введённые локально данные
       // (если что-то есть), чтобы не потерялись.
       await pushAllNow();
@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     const session = await readSession();
-    setSyncToken(null);
+    setSyncToken(null); setApiToken(null);
     await clearSession();
     await clearUserData();
     setUser(null);

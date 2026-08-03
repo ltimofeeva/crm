@@ -1,83 +1,74 @@
 // Контекст подписки: один источник правды о доступности функций.
 //
-// Уровни доступа:
-// - Пробный период 4 дня с первого запуска: доступно всё.
-// - «Помощник» (basic): базовый функционал приложения (CRM, календарь, контент).
-// - «Помощник Про» (pro): дополнительно все функции ИИ.
-// - Биллинг не настроен (режим разработки): всё открыто.
+// Тариф и остаток лимитов считает СЕРВЕР (backend/plans.js + db.js) — здесь
+// мы их только показываем. Так лимиты нельзя обойти из приложения, а расход
+// считается по фактическим токенам ответа модели.
 //
-// isBasic — можно ли пользоваться приложением; isPro — доступен ли ИИ.
+// Уровни:
+// - «Бесплатный» — всё приложение работает, ИИ выключен.
+// - «Помощник» / «Помощник Макс» — ИИ включён, с месячным лимитом.
+// - Пробный период после регистрации — на условиях «Помощника».
+//
+// isBasic — можно ли пользоваться приложением (всегда true: бесплатный тариф
+//           даёт полноценную CRM);
+// isPro   — доступен ли ИИ прямо сейчас (тариф позволяет и лимит не исчерпан).
 
 import React, {
   createContext, useContext, useEffect, useState, useCallback,
 } from "react";
-import {
-  configurePurchases, getSubscriptionTier, isBillingConfigured, TRIAL_DAYS,
-  identifyUser,
-} from "../api/purchases";
-import { getInstalledAt } from "../storage/store";
+import { apiGetSubscription } from "../api/backend";
 import { useAuth } from "./AuthContext";
 
-const SubscriptionContext = createContext({
-  tier: "dev",          // dev | trial | none | basic | pro
-  isBasic: true,        // доступен ли базовый функционал
-  isPro: true,          // доступны ли функции ИИ
+const EMPTY = {
+  planId: "free",
+  planTitle: "Бесплатный",
+  source: "free",
   trialDaysLeft: 0,
-  billingEnabled: false,
+  ai: false,
+  limits: { requests: 0, tokens: 0 },
+  used: { requests: 0, tokens: 0 },
+  left: { requests: 0, tokens: 0 },
+};
+
+const SubscriptionContext = createContext({
+  ...EMPTY,
+  isBasic: true,
+  isPro: false,
   loading: true,
   refresh: async () => {},
 });
 
 export function SubscriptionProvider({ children }) {
   const { user } = useAuth();
-  const appUserId = user?.id || null;
-  const [state, setState] = useState({
-    tier: "dev", isBasic: true, isPro: true, trialDaysLeft: 0,
-    billingEnabled: false, loading: true,
-  });
+  const token = user?.token || null;
+  const [sub, setSub] = useState(EMPTY);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (!user) { setSub(EMPTY); setLoading(false); return; }
     try {
-      await configurePurchases();
-      // Подписка проверяется по аккаунту: привязываем покупки к логину.
-      if (appUserId) await identifyUser(appUserId);
-      const billingEnabled = isBillingConfigured();
-      const tier = await getSubscriptionTier();
-
-      const installedAt = await getInstalledAt();
-      const daysUsed = (Date.now() - installedAt) / 86400000;
-      const trialDaysLeft = Math.max(0, Math.ceil(TRIAL_DAYS - daysUsed));
-      const trialActive = trialDaysLeft > 0;
-
-      let isBasic;
-      let isPro;
-      let effectiveTier = tier;
-      if (tier === "dev") {
-        isBasic = true; isPro = true;
-      } else if (tier === "pro") {
-        isBasic = true; isPro = true;
-      } else if (tier === "basic") {
-        isBasic = true; isPro = false;
-      } else {
-        // Подписки нет: во время пробного периода открыто всё.
-        isBasic = trialActive; isPro = trialActive;
-        effectiveTier = trialActive ? "trial" : "none";
-      }
-
-      setState({
-        tier: effectiveTier, isBasic, isPro, trialDaysLeft,
-        billingEnabled, loading: false,
-      });
+      // Токен уже установлен в api/backend при входе — берём его оттуда.
+      const { getApiToken } = await import("../api/backend");
+      const t = getApiToken();
+      if (!t) { setLoading(false); return; }
+      const data = await apiGetSubscription(t);
+      setSub(data);
     } catch (e) {
-      // При ошибке не блокируем приложение.
-      setState((s) => ({ ...s, loading: false }));
+      // Нет связи — не блокируем приложение, оставляем прошлое состояние.
+    } finally {
+      setLoading(false);
     }
-  }, [appUserId]);
+  }, [user, token]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // ИИ доступен, если тариф это позволяет и остался лимит.
+  const isPro = !!sub.ai && sub.left.requests > 0 && sub.left.tokens > 0;
+
   return (
-    <SubscriptionContext.Provider value={{ ...state, refresh }}>
+    <SubscriptionContext.Provider
+      value={{ ...sub, isBasic: true, isPro, loading, refresh }}
+    >
       {children}
     </SubscriptionContext.Provider>
   );

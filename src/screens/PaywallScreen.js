@@ -1,180 +1,145 @@
-// Экран подписки (paywall). Показывает пакеты из RevenueCat,
-// проводит покупку через App Store / Google Play и восстановление покупок.
+// Экран подписки. Тарифы и лимиты приходят с сервера (backend/plans.js),
+// поэтому цены и лимиты меняются в одном месте и сразу видны в приложении.
+//
+// Оплата: на сайте пока нет автоматического приёма платежей (нужен платёжный
+// сервис — ЮKassa, CloudPayments и т.п.). Поэтому здесь показаны условия и
+// способ связи, а тариф подключается вручную после поступления оплаты.
 
 import React, { useEffect, useState } from "react";
-import {
-  ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert, Pressable,
-} from "react-native";
-import { C, SERIF } from "../theme";
-import { Card, PrimaryButton } from "../components/ui";
-import {
-  getSubscriptionPackages, purchasePackage, restorePurchases,
-} from "../api/purchases";
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { C, R, SERIF } from "../theme";
+import { Card, PrimaryButton, Tag } from "../components/ui";
+import { apiGetPlans } from "../api/backend";
 import { useSubscription } from "../context/SubscriptionContext";
 
-const TIERS = [
-  {
-    name: "Помощник",
-    features: [
-      "Клиенты, заметки и история сессий",
-      "Календарь, график работы и запись",
-      "Контент-план и планирование",
-      "Аналитика: финансы и загруженность",
-    ],
-  },
-  {
-    name: "Помощник Про",
-    features: [
-      "Всё из «Помощника», плюс:",
-      "ИИ-ассистент с контекстом практики",
-      "Анализ клиентов и подготовка к сессиям",
-      "Напоминания: горячие/тёплые/холодные",
-      "Идеи контента и тексты сообщений",
-    ],
-  },
-];
+const money = (n) => `${n.toLocaleString("ru-RU")} ₽`;
+const num = (n) => n.toLocaleString("ru-RU");
 
 export default function PaywallScreen({ navigation }) {
-  const { billingEnabled, isPro, tier, trialDaysLeft, refresh } = useSubscription();
-  const [packages, setPackages] = useState([]);
+  const sub = useSubscription();
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState(false);
 
   useEffect(() => {
     (async () => {
-      try {
-        setPackages(await getSubscriptionPackages());
-      } catch (e) {
-        // список останется пустым — покажем подсказку ниже
-      } finally {
-        setLoading(false);
-      }
+      try { setPlans(await apiGetPlans()); }
+      catch (e) { /* без списка покажем подсказку ниже */ }
+      finally { setLoading(false); }
     })();
   }, []);
 
-  const buy = async (pkg) => {
-    if (buying) return;
-    setBuying(true);
-    try {
-      const active = await purchasePackage(pkg);
-      await refresh();
-      if (active) {
-        Alert.alert("Готово", "Подписка активна. Приятной работы!");
-        navigation.goBack();
-      }
-    } catch (e) {
-      // Отмену покупки пользователем не считаем ошибкой.
-      if (!e?.userCancelled) {
-        Alert.alert("Не получилось", "Покупка не прошла. Попробуйте ещё раз.");
-      }
-    } finally {
-      setBuying(false);
-    }
-  };
-
-  const restore = async () => {
-    try {
-      const active = await restorePurchases();
-      await refresh();
-      Alert.alert(
-        active ? "Подписка восстановлена" : "Покупок не найдено",
-        active ? "Все функции снова доступны." : "На этом аккаунте нет активной подписки.",
-      );
-      if (active) navigation.goBack();
-    } catch (e) {
-      Alert.alert("Ошибка", "Не удалось восстановить покупки.");
-    }
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <Text style={[styles.title, SERIF]}>Подписка</Text>
+      <Text style={[styles.title, SERIF]}>Тарифы</Text>
       <Text style={styles.sub}>
-        Помощник ведёт практику, Помощник Про добавляет ИИ: анализ клиентов,
-        напоминания, контент и тексты сообщений в вашем стиле.
+        Сама CRM — клиенты, календарь, финансы — бесплатна навсегда.
+        Платные тарифы добавляют ИИ-ассистента.
       </Text>
 
-      {tier === "trial" && (
+      {/* Что сейчас: пробный период, активный тариф или бесплатный */}
+      {sub.source === "trial" && (
         <Card style={styles.notice}>
           <Text style={styles.noticeText}>
-            🎁 Бесплатный период: {trialDaysLeft === 1 ? "остался 1 день" : `осталось ${trialDaysLeft} дн.`} — всё открыто.
+            🎁 Бесплатный период: {sub.trialDaysLeft === 1 ? "остался 1 день" : `осталось ${sub.trialDaysLeft} дн.`} —
+            ИИ работает на условиях «Помощника».
           </Text>
         </Card>
       )}
-      {tier === "none" && (
+      {sub.source === "paid" && (
+        <Card style={styles.notice}>
+          <Text style={styles.noticeText}>
+            Активен тариф «{sub.planTitle}». Осталось в этом месяце:{" "}
+            {num(sub.left.requests)} запросов к ИИ.
+          </Text>
+        </Card>
+      )}
+      {sub.source === "free" && (
         <Card style={[styles.notice, { backgroundColor: C.dangerSoft, borderColor: C.dangerSoft }]}>
           <Text style={[styles.noticeText, { color: C.danger }]}>
-            Бесплатный период завершён. Оформите подписку, чтобы продолжить работу.
+            Сейчас бесплатный тариф: приложение работает полностью, ИИ-функции выключены.
           </Text>
-        </Card>
-      )}
-
-      {TIERS.map((t) => (
-        <Card key={t.name} style={styles.features}>
-          <Text style={styles.tierName}>{t.name}</Text>
-          {t.features.map((f) => (
-            <Text key={f} style={styles.feature}>✓  {f}</Text>
-          ))}
-        </Card>
-      ))}
-
-      {isPro && billingEnabled && (
-        <Card style={styles.notice}>
-          <Text style={styles.noticeText}>Подписка уже активна — всё доступно.</Text>
         </Card>
       )}
 
       {loading && <ActivityIndicator color={C.primary} style={{ marginTop: 20 }} />}
 
-      {!loading && packages.map((pkg) => (
-        <Pressable key={pkg.identifier} onPress={() => buy(pkg)} disabled={buying}>
-          <Card style={styles.pkg}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.pkgTitle}>{pkg.product?.title || pkg.identifier}</Text>
-              <Text style={styles.pkgSub}>{pkg.product?.description || ""}</Text>
+      {plans.map((p) => {
+        const active = sub.planId === p.id;
+        return (
+          <Card key={p.id} style={[styles.plan, active && styles.planActive]}>
+            <View style={styles.planHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.planName}>{p.title}</Text>
+                <Text style={styles.planPrice}>
+                  {p.price ? `${money(p.price)} / мес` : "бесплатно"}
+                </Text>
+              </View>
+              {active ? <Tag>Ваш тариф</Tag> : null}
             </View>
-            <Text style={styles.pkgPrice}>{pkg.product?.priceString || ""}</Text>
+
+            {p.ai ? (
+              <View style={styles.limits}>
+                <Text style={styles.limitsT}>
+                  До {num(p.requests)} обращений к ИИ в месяц
+                </Text>
+                <Text style={styles.limitsSub}>
+                  Счётчик обнуляется 1-го числа
+                </Text>
+              </View>
+            ) : null}
+
+            {(p.features || []).map((f) => (
+              <View key={f} style={styles.featureRow}>
+                <Text style={styles.featureTick}>✓</Text>
+                <Text style={styles.feature}>{f}</Text>
+              </View>
+            ))}
           </Card>
-        </Pressable>
-      ))}
+        );
+      })}
 
-      {!loading && packages.length === 0 && (
-        <Card style={styles.notice}>
-          <Text style={styles.noticeText}>
-            {billingEnabled
-              ? "Пакеты подписки пока не настроены в RevenueCat (раздел Offerings)."
-              : "Платежи не подключены: приложение в режиме разработки, все функции открыты. Как подключить подписку — см. README, раздел «Подписка»."}
-          </Text>
-        </Card>
-      )}
-
-      {billingEnabled && (
-        <View style={{ marginTop: 16, alignItems: "center" }}>
-          <PrimaryButton title="Восстановить покупки" tone="soft" onPress={restore} />
+      <Card style={styles.how}>
+        <Text style={styles.howTitle}>Как подключить</Text>
+        <Text style={styles.howText}>
+          Напишите нам — пришлём реквизиты для оплаты и подключим тариф к вашему
+          аккаунту в течение дня. Автоматическая оплата картой на сайте появится
+          позже, когда будет подключён платёжный сервис.
+        </Text>
+        <View style={{ marginTop: 12, alignSelf: "flex-start" }}>
+          <PrimaryButton title="Вернуться" tone="soft" onPress={() => navigation.goBack()} />
         </View>
-      )}
+      </Card>
 
       <Text style={styles.legal}>
-        Подписка продлевается автоматически, отменить можно в любой момент в
-        настройках App Store / Google Play. Оплата списывается через ваш
-        аккаунт магазина приложений.
+        Лимит считается по фактическому расходу ИИ и обновляется первого числа
+        каждого месяца. Неизрасходованные запросы на следующий месяц не переносятся.
       </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 20, paddingBottom: 40 },
+  wrap: { padding: 20, paddingBottom: 44 },
   title: { fontSize: 26, color: C.ink, textAlign: "center", marginTop: 8 },
   sub: { fontSize: 14, color: C.inkSoft, textAlign: "center", marginTop: 8, lineHeight: 20 },
-  features: { padding: 16, marginTop: 12 },
-  tierName: { fontSize: 15, fontWeight: "700", color: C.primary, marginBottom: 6 },
-  feature: { fontSize: 14, color: C.ink, lineHeight: 26 },
-  pkg: { padding: 16, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 12 },
-  pkgTitle: { fontSize: 15, fontWeight: "600", color: C.ink },
-  pkgSub: { fontSize: 12, color: C.inkSoft, marginTop: 2 },
-  pkgPrice: { fontSize: 16, fontWeight: "700", color: C.primary },
+  plan: { padding: 18, marginTop: 14 },
+  planActive: { borderColor: C.primary, borderWidth: 2 },
+  planHead: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 10 },
+  planName: { fontSize: 17, fontWeight: "700", color: C.ink },
+  planPrice: { fontSize: 15, color: C.primary, fontWeight: "700", marginTop: 2 },
+  limits: {
+    backgroundColor: C.primarySoft, borderRadius: R.md,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10,
+  },
+  limitsT: { fontSize: 13, color: C.primary, fontWeight: "700" },
+  limitsSub: { fontSize: 11, color: C.inkSoft, marginTop: 2 },
+  featureRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 4 },
+  featureTick: { fontSize: 14, color: C.primary, lineHeight: 21 },
+  feature: { flex: 1, fontSize: 14, color: C.ink, lineHeight: 21 },
   notice: { padding: 14, marginTop: 14, backgroundColor: C.primarySoft, borderColor: C.primarySoft },
   noticeText: { fontSize: 13, color: C.primary, lineHeight: 19 },
+  how: { padding: 18, marginTop: 18 },
+  howTitle: { fontSize: 15, fontWeight: "700", color: C.ink, marginBottom: 8 },
+  howText: { fontSize: 13, color: C.inkSoft, lineHeight: 19 },
   legal: { fontSize: 11, color: C.inkSoft, textAlign: "center", marginTop: 20, lineHeight: 16 },
 });

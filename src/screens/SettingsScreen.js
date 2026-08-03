@@ -17,7 +17,8 @@ import { useAuth } from "../context/AuthContext";
 const EMPTY_PRODUCT = { name: "", durationMin: "", price: "", about: "" };
 
 export default function SettingsScreen({ navigation, route }) {
-  const { billingEnabled, isPro } = useSubscription();
+  const sub = useSubscription();
+  const { isPro } = sub;
   const { user, signOut } = useAuth();
   const [products, setProducts] = useState([]);
   const [profile, setProfile] = useState({ activity: "", approach: "", strengths: "" });
@@ -183,15 +184,19 @@ export default function SettingsScreen({ navigation, route }) {
         <PrimaryButton title={profileSaved ? "Сохранено ✓" : "Сохранить особенности"} tone="accent" onPress={persistProfile} />
       </Card>
 
-      <Text style={styles.section}>ПОДПИСКА</Text>
+      <Text style={styles.section}>ТАРИФ</Text>
       <Card style={styles.subRow} onPress={() => navigation.navigate("Paywall")}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.prodName}>ExpertOS Про</Text>
+          <Text style={styles.prodName}>{sub.planTitle}</Text>
           <Text style={styles.prodMeta}>
-            {billingEnabled ? (isPro ? "Подписка активна" : "Подписка не оформлена") : "Режим разработки — всё открыто"}
+            {sub.source === "trial"
+              ? `Пробный период: осталось ${sub.trialDaysLeft} дн.`
+              : sub.ai
+                ? `Осталось ${sub.left.requests.toLocaleString("ru-RU")} запросов к ИИ из ${sub.limits.requests.toLocaleString("ru-RU")} в этом месяце`
+                : "ИИ-функции выключены. Нажмите, чтобы посмотреть тарифы."}
           </Text>
         </View>
-        <Tag tone={isPro ? "green" : "clay"}>{isPro ? "Активна" : "Нет"}</Tag>
+        <Tag tone={isPro ? "green" : "clay"}>{isPro ? "ИИ включён" : "Без ИИ"}</Tag>
       </Card>
 
       <Text style={styles.section}>АККАУНТ</Text>

@@ -98,7 +98,8 @@ const QUICK = [
 ];
 
 export default function AIChatScreen({ route, navigation }) {
-  const { isPro, loading: subLoading } = useSubscription();
+  const sub = useSubscription();
+  const { isPro, loading: subLoading } = sub;
   const [messages, setMessages] = useState([]);
   const [convos, setConvos] = useState([]);
   const [input, setInput] = useState(route.params?.preset || "");
@@ -226,24 +227,36 @@ export default function AIChatScreen({ route, navigation }) {
     try {
       const reply = await sendChat({ messages: history, system });
       setMessages((p) => [...p, { role: "assistant", content: reply }]);
+      // Обновляем остаток лимита — он изменился после этого запроса.
+      sub.refresh();
     } catch (e) {
-      setError("Не удалось получить ответ. Проверьте интернет и попробуйте ещё раз.");
+      // Лимит или тариф: у сервера уже готов понятный текст, показываем его.
+      setError(e.code === "limit"
+        ? e.message
+        : "Не удалось получить ответ. Проверьте интернет и попробуйте ещё раз.");
+      if (e.code === "limit") sub.refresh();
       setMessages((p) => p.slice(0, -1)); setInput(userText);
     } finally {
       setLoading(false);
     }
   };
 
-  // Функции ИИ доступны только по подписке «Помощник Про».
+  // Функции ИИ доступны на платных тарифах и пока не исчерпан месячный лимит.
   if (!subLoading && !isPro) {
+    // Тариф с ИИ есть, но лимит закончился — это другая ситуация, и говорить
+    // о ней надо иначе, чем «оформите подписку».
+    const spent = sub.ai;
     return (
       <View style={styles.lockWrap}>
-        <Text style={styles.lockTitle}>Ассистент доступен в «Помощник Про»</Text>
-        <Text style={styles.lockText}>
-          Подготовка к сессиям, анализ клиентов, напоминания, идеи контента и
-          тексты сообщений — в полной подписке «Помощник Про».
+        <Text style={styles.lockTitle}>
+          {spent ? "Лимит ИИ на этот месяц исчерпан" : "ИИ-ассистент — на платном тарифе"}
         </Text>
-        <PrimaryButton title="Оформить подписку" onPress={() => navigation.navigate("Paywall")} />
+        <Text style={styles.lockText}>
+          {spent
+            ? `Запросы по тарифу «${sub.planTitle}» закончились. Лимит обновится 1-го числа — или можно перейти на тариф побольше.`
+            : "Подготовка к сессиям, анализ клиентов, напоминания, идеи контента и тексты сообщений входят в платные тарифы."}
+        </Text>
+        <PrimaryButton title="Посмотреть тарифы" onPress={() => navigation.navigate("Paywall")} />
       </View>
     );
   }

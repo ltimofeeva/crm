@@ -3,6 +3,12 @@
 
 import { BACKEND_URL } from "../config";
 
+// Токен входа. Хранится здесь, чтобы им могли пользоваться и синхронизация
+// данных, и запросы к ИИ (к /api/chat теперь пускают только своих).
+let authToken = null;
+export function setApiToken(t) { authToken = t || null; }
+export function getApiToken() { return authToken; }
+
 async function post(pathname, body, token) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -43,6 +49,29 @@ export async function apiGetData(token) {
   if (res.status === 401) throw new Error("unauthorized");
   const data = await res.json().catch(() => ({}));
   return data.data || {};
+}
+
+// Текущий тариф и остаток лимитов ИИ.
+export async function apiGetSubscription(token) {
+  let res;
+  try {
+    res = await fetch(`${BACKEND_URL}/api/subscription`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    throw new Error("network");
+  }
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error("server");
+  return res.json();
+}
+
+// Список тарифов для экрана подписки.
+export async function apiGetPlans() {
+  const res = await fetch(`${BACKEND_URL}/api/plans`);
+  if (!res.ok) throw new Error("server");
+  const data = await res.json();
+  return data.plans || [];
 }
 
 // Сохранить данные пользователя на сервер.
