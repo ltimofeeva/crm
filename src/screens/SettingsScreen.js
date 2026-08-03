@@ -1,7 +1,7 @@
 // Настройки деятельности (⚙): продукты специалиста, «О себе»,
 // агент-распаковка, подписка и очистка данных.
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { ScrollView, View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { confirmAsync } from "../utils/confirm";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,6 +18,46 @@ import { UNPACK_PROMPT } from "../api/ai";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useAuth } from "../context/AuthContext";
 
+// Подпись поля со свёрнутой подсказкой. На телефоне подсказка открывается
+// нажатием (наведения там нет), на компьютере — ещё и наведением.
+function FieldLabel({ text, open, onToggle, onHoverIn, onHoverOut, hint }) {
+  return (
+    <>
+      <View style={styles.lblRow}>
+        <Text style={styles.bkLabelInline}>{text}</Text>
+        <Pressable
+          onPress={onToggle}
+          onHoverIn={onHoverIn}
+          onHoverOut={onHoverOut}
+          hitSlop={10}
+          style={[styles.qm, open && styles.qmOn]}
+        >
+          <Text style={[styles.qmT, open && styles.qmTOn]}>!</Text>
+        </Pressable>
+      </View>
+      {open ? <Text style={styles.tip}>{hint}</Text> : null}
+    </>
+  );
+}
+
+// Числовое поле с единицей измерения справа.
+function NumField({ value, onChangeText, onBlur, unit, placeholder }) {
+  return (
+    <View style={styles.numWrap}>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        keyboardType="numeric"
+        placeholder={placeholder}
+        placeholderTextColor={C.inkFaint}
+        style={styles.numInput}
+      />
+      <Text style={styles.numUnit}>{unit}</Text>
+    </View>
+  );
+}
+
 const EMPTY_PRODUCT = { name: "", durationMin: "", price: "", about: "" };
 
 export default function SettingsScreen({ navigation, route }) {
@@ -32,6 +72,23 @@ export default function SettingsScreen({ navigation, route }) {
   const [booking, setBooking] = useState(null);
   const [bookingLink, setBookingLink] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+  const [openHint, setOpenHint] = useState(null);   // какая подсказка раскрыта
+  const [draft, setDraft] = useState({});           // что набрано в числовых полях
+  // На компьютере подсказку открывает наведение. Без этой пометки клик сразу
+  // после наведения закрывал бы её — палец/курсор ещё на значке, а подсказки нет.
+  const hoverRef = useRef(null);
+
+  const hintIn = (key) => () => { hoverRef.current = key; setOpenHint(key); };
+  const hintOut = (key) => () => {
+    if (hoverRef.current === key) hoverRef.current = null;
+    setOpenHint((k) => (k === key ? null : k));
+  };
+  // Нажатие нужно там, где наведения нет (телефон). Если подсказку уже показало
+  // наведение — нажатие ничего не меняет.
+  const hintTap = (key) => () => {
+    if (hoverRef.current === key) return;
+    setOpenHint((k) => (k === key ? null : key));
+  };
 
   const load = useCallback(async () => {
     setProducts(await getProducts());
@@ -71,6 +128,32 @@ export default function SettingsScreen({ navigation, route }) {
     if (next.enabled && !bookingLink) {
       try { setBookingLink(await fetchBookingLink()); } catch (e) {}
     }
+  };
+
+  // Разумные границы: шаг в 1 минуту или календарь на 0 дней сделали бы
+  // онлайн-запись бессмысленной. Молча подтягиваем к границе, без ругани.
+  const LIMITS = {
+    stepMin: { min: 5, max: 480, def: 60 },
+    bufferMin: { min: 0, max: 240, def: 0 },
+    minLeadHours: { min: 0, max: 168, def: 3 },
+    maxDaysAhead: { min: 1, max: 365, def: 30 },
+  };
+
+  // Пока поле редактируют, показываем набранное; после выхода — сохранённое.
+  const fieldValue = (key) =>
+    draft[key] !== undefined ? draft[key] : String(booking?.[key] ?? "");
+
+  const onFieldChange = (key) => (v) =>
+    setDraft((d) => ({ ...d, [key]: v.replace(/\D/g, "").slice(0, 4) }));
+
+  // Проверяем и сохраняем, когда человек ушёл с поля.
+  const onFieldBlur = (key) => async () => {
+    const raw = draft[key];
+    setDraft((d) => { const n = { ...d }; delete n[key]; return n; });
+    if (raw === undefined) return;
+    const lim = LIMITS[key];
+    const n = raw === "" ? lim.def : Math.min(lim.max, Math.max(lim.min, parseInt(raw, 10)));
+    if (n !== booking[key]) await setBk(key, n);
   };
 
   const setBk = async (key, value) => {
@@ -261,45 +344,78 @@ export default function SettingsScreen({ navigation, route }) {
                 <Text style={styles.hint}>Ссылка появится, когда будет связь с сервером.</Text>
               )}
 
-              <Text style={styles.bkLabel}>Шаг окошек</Text>
-              <View style={styles.chipsRow}>
-                {[30, 60].map((v) => (
-                  <Pressable key={v} onPress={() => setBk("stepMin", v)} style={[styles.chip, booking.stepMin === v && styles.chipOn]}>
-                    <Text style={[styles.chipT, booking.stepMin === v && styles.chipTOn]}>{v} мин</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <FieldLabel
+                text="Шаг окошек"
+                hint="Интервалы времени, которые увидят клиенты. Например, 60 — окошки в 10:00, 11:00, 12:00; 30 — ещё и в 10:30, 11:30."
+                open={openHint === "step"}
+                onToggle={hintTap("step")}
+                onHoverIn={hintIn("step")}
+                onHoverOut={hintOut("step")}
+              />
+              <NumField
+                value={fieldValue("stepMin")}
+                onChangeText={onFieldChange("stepMin")}
+                onBlur={onFieldBlur("stepMin")}
+                unit="мин"
+                placeholder="60"
+              />
 
-              <Text style={styles.bkLabel}>Перерыв между встречами</Text>
-              <View style={styles.chipsRow}>
-                {[0, 10, 15, 30].map((v) => (
-                  <Pressable key={v} onPress={() => setBk("bufferMin", v)} style={[styles.chip, booking.bufferMin === v && styles.chipOn]}>
-                    <Text style={[styles.chipT, booking.bufferMin === v && styles.chipTOn]}>
-                      {v ? `${v} мин` : "без"}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <FieldLabel
+                text="Перерыв между встречами"
+                hint="Свободное время после каждой встречи. Клиент не сможет записаться впритык к соседней записи. 0 — без перерыва."
+                open={openHint === "buffer"}
+                onToggle={hintTap("buffer")}
+                onHoverIn={hintIn("buffer")}
+                onHoverOut={hintOut("buffer")}
+              />
+              <NumField
+                value={fieldValue("bufferMin")}
+                onChangeText={onFieldChange("bufferMin")}
+                onBlur={onFieldBlur("bufferMin")}
+                unit="мин"
+                placeholder="0"
+              />
 
-              <Text style={styles.bkLabel}>Записаться можно не позже чем за</Text>
-              <View style={styles.chipsRow}>
-                {[1, 3, 12, 24].map((v) => (
-                  <Pressable key={v} onPress={() => setBk("minLeadHours", v)} style={[styles.chip, booking.minLeadHours === v && styles.chipOn]}>
-                    <Text style={[styles.chipT, booking.minLeadHours === v && styles.chipTOn]}>{v} ч</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <FieldLabel
+                text="Запись закрывается за"
+                hint="За сколько часов до начала перестают показывать окошко. Например, 3 — на 15:00 можно записаться только до 12:00."
+                open={openHint === "lead"}
+                onToggle={hintTap("lead")}
+                onHoverIn={hintIn("lead")}
+                onHoverOut={hintOut("lead")}
+              />
+              <NumField
+                value={fieldValue("minLeadHours")}
+                onChangeText={onFieldChange("minLeadHours")}
+                onBlur={onFieldBlur("minLeadHours")}
+                unit="ч"
+                placeholder="3"
+              />
 
-              <Text style={styles.bkLabel}>Открыть календарь вперёд на</Text>
-              <View style={styles.chipsRow}>
-                {[7, 14, 30, 60].map((v) => (
-                  <Pressable key={v} onPress={() => setBk("maxDaysAhead", v)} style={[styles.chip, booking.maxDaysAhead === v && styles.chipOn]}>
-                    <Text style={[styles.chipT, booking.maxDaysAhead === v && styles.chipTOn]}>{v} дн.</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <FieldLabel
+                text="Календарь открыт вперёд на"
+                hint="На сколько дней вперёд клиент видит свободное время."
+                open={openHint === "horizon"}
+                onToggle={hintTap("horizon")}
+                onHoverIn={hintIn("horizon")}
+                onHoverOut={hintOut("horizon")}
+              />
+              <NumField
+                value={fieldValue("maxDaysAhead")}
+                onChangeText={onFieldChange("maxDaysAhead")}
+                onBlur={onFieldBlur("maxDaysAhead")}
+                unit="дн."
+                placeholder="30"
+              />
 
-              <Text style={styles.bkLabel}>Подсказка клиенту (необязательно)</Text>
+              <FieldLabel
+                text="Подсказка клиенту (необязательно)"
+                hint="Короткий текст, который клиент увидит на странице записи — над выбором услуги."
+                open={openHint === "note"}
+                onToggle={hintTap("note")}
+                onHoverIn={hintIn("note")}
+                onHoverOut={hintOut("note")}
+              />
               <TextInput
                 value={booking.note}
                 onChangeText={(v) => setBk("note", v)}
@@ -394,19 +510,38 @@ const styles = StyleSheet.create({
   boxTick: { color: C.white, fontSize: 12, fontWeight: "700" },
   bkTitle: { fontSize: 14, fontWeight: "600", color: C.ink },
   bkLabel: { fontSize: 12, color: C.inkSoft, marginTop: 16, marginBottom: 6 },
+  // Подпись поля + значок подсказки
+  lblRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 16, marginBottom: 6 },
+  bkLabelInline: { fontSize: 12, color: C.inkSoft },
+  qm: {
+    width: 16, height: 16, borderRadius: 8,
+    borderWidth: 1, borderColor: C.inkFaint,
+    alignItems: "center", justifyContent: "center",
+  },
+  qmOn: { backgroundColor: C.primary, borderColor: C.primary },
+  // lineHeight = высоте кружка, иначе «!» встаёт выше центра.
+  qmT: {
+    fontSize: 11, lineHeight: 14, fontWeight: "700", color: C.inkFaint,
+    textAlign: "center", includeFontPadding: false,
+  },
+  qmTOn: { color: C.white },
+  tip: {
+    backgroundColor: C.primarySoft, borderRadius: R.md,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 12, lineHeight: 16, color: C.primary, marginBottom: 8,
+  },
+  // Числовое поле с единицей измерения
+  numWrap: { position: "relative", justifyContent: "center" },
+  numInput: {
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
+    paddingLeft: 14, paddingRight: 54, paddingVertical: 12, fontSize: 15, color: C.ink,
+  },
+  numUnit: { position: "absolute", right: 14, fontSize: 13, color: C.inkSoft },
   linkBox: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: R.md,
     paddingHorizontal: 12, paddingVertical: 11, marginBottom: 8,
   },
   linkT: { fontSize: 13, color: C.primary, fontWeight: "600" },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.pill,
-    backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
-  },
-  chipOn: { backgroundColor: C.primary, borderColor: C.primary },
-  chipT: { fontSize: 12, color: C.ink },
-  chipTOn: { color: C.white },
   unpack: { padding: 16, marginTop: 12, backgroundColor: C.primarySoft, borderColor: C.primarySoft },
   unpackTitle: { fontSize: 15, fontWeight: "600", color: C.primary },
   unpackText: { fontSize: 13, color: C.ink, lineHeight: 19, marginTop: 6 },
