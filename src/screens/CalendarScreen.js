@@ -1,6 +1,6 @@
 // Календарь-расписание: шкала времени слева, три дня колонками
 // (выбранный + два следующих), стрелки листания по одному дню, выбор даты
-// через мини-календарь. Запись, закрытие времени и график — всплывающие окна.
+// через мини-календарь. Запись, свои дела и график — всплывающие окна.
 
 import React, { useState, useCallback } from "react";
 import {
@@ -67,7 +67,7 @@ export default function CalendarScreen({ navigation, route }) {
   const [clientSug, setClientSug] = useState(false);
   const [productSug, setProductSug] = useState(false);
 
-  // Форма закрытия времени. blockEditId: null — новый блок, иначе правка.
+  // Форма своего дела. blockEditId: null — новое, иначе правка.
   const [blockForm, setBlockForm] = useState({ date: "", start: "", end: "", title: "" });
   const [blockError, setBlockError] = useState("");
   const [blockEditId, setBlockEditId] = useState(null);
@@ -111,9 +111,16 @@ export default function CalendarScreen({ navigation, route }) {
     return inPeriod && !!schedule.days?.[new Date(iso + "T00:00:00").getDay()];
   };
 
-  // Диапазон сетки: от начала графика до конца, расширяется под события.
-  let gridStart = Math.min(toMin(schedule?.start || "09:00") || 540, 9 * 60);
-  let gridEnd = Math.max(toMin(schedule?.end || "20:00") || 1200, 20 * 60);
+  // Диапазон ленты задаётся в графике («Отображать на ленте», по умолчанию
+  // 07:00–22:00). Если запись или своё дело оказались вне этого промежутка,
+  // лента расширяется — иначе событие стало бы невидимым.
+  const min = (v, fallback) => {
+    const m = toMin(v);
+    return Number.isFinite(m) ? m : fallback;
+  };
+  let gridStart = min(schedule?.viewStart, 7 * 60);
+  let gridEnd = min(schedule?.viewEnd, 22 * 60);
+  if (gridEnd <= gridStart) { gridStart = 7 * 60; gridEnd = 22 * 60; }
   const visibleEvents = events.filter((e) => days.includes(e.date));
   const visibleBlocks = blocks.filter((b) => days.includes(b.date));
   visibleEvents.forEach((e) => {
@@ -276,7 +283,7 @@ export default function CalendarScreen({ navigation, route }) {
     }
   };
 
-  // ---------- Закрытое время ----------
+  // ---------- Своё дело (событие вне записи клиента) ----------
 
   const openBlockModal = (date) => {
     setBlockEditId(null);
@@ -326,9 +333,14 @@ export default function CalendarScreen({ navigation, route }) {
       ...schedule,
       start: normalizeTime(schedule.start) || "10:00",
       end: normalizeTime(schedule.end) || "20:00",
+      viewStart: normalizeTime(schedule.viewStart) || "07:00",
+      viewEnd: normalizeTime(schedule.viewEnd) || "22:00",
       from: schedFrom,
       to: schedTo,
     };
+    // Окно ленты должно вмещать рабочие часы, иначе часть графика не видна.
+    if (toMin(next.viewStart) > toMin(next.start)) next.viewStart = next.start;
+    if (toMin(next.viewEnd) < toMin(next.end)) next.viewEnd = next.end;
     setSchedule(next);
     await saveSchedule(next);
     setSchedModal(false);
@@ -337,22 +349,40 @@ export default function CalendarScreen({ navigation, route }) {
 
   // ---------- Отрисовка колонок ----------
 
+  // Белая полоса рабочих часов внутри серой колонки. В будущем именно на это
+  // время клиент сможет записаться онлайн сам.
+  const workBand = (iso) => {
+    if (!isWorkday(iso)) return null;
+    const s = min(schedule?.start, NaN);
+    const e = min(schedule?.end, NaN);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
+    // Обрезаем по видимому окну ленты.
+    const from = Math.max(s, gridStart);
+    const to = Math.min(e, gridEnd);
+    if (to <= from) return null;
+    return {
+      top: ((from - gridStart) / 60) * HOUR_H,
+      height: ((to - from) / 60) * HOUR_H,
+    };
+  };
+
   const renderDayColumn = (iso) => {
     const dayEvents = events.filter((e) => e.date === iso);
     const dayBlocks = blocks.filter((b) => b.date === iso);
-    const work = isWorkday(iso);
+    const band = workBand(iso);
     return (
       <Pressable
         key={iso}
-        style={[styles.dayCol, !work && styles.dayColOff, { height: gridHeight }]}
+        style={[styles.dayCol, { height: gridHeight }]}
         onPress={() => openEventModal(iso)}
       >
+        {band && <View pointerEvents="none" style={[styles.workBand, band]} />}
         {dayBlocks.map((b) => {
           const top = ((toMin(b.start) - gridStart) / 60) * HOUR_H;
           const h = Math.max(((toMin(b.end) - toMin(b.start)) / 60) * HOUR_H, 20);
           return (
             <Pressable key={b.id} onPress={() => openBlockEdit(b)} style={[styles.blockBox, { top, height: h }]}>
-              <Text style={styles.blockBoxT} numberOfLines={1}>⛔ {b.title || "Закрыто"}</Text>
+              <Text style={styles.blockBoxT} numberOfLines={1}>{b.title || "Занято"}</Text>
               {h > 36 ? <Text style={styles.blockBoxTime}>{b.start}–{b.end}</Text> : null}
             </Pressable>
           );
@@ -434,7 +464,7 @@ export default function CalendarScreen({ navigation, route }) {
 
         <View style={styles.actionsRow}>
           <PrimaryButton title="＋ Запись" onPress={() => openEventModal(startDate)} />
-          {!resEvent && <PrimaryButton title="Закрыть время" tone="soft" onPress={() => openBlockModal(startDate)} />}
+          {!resEvent && <PrimaryButton title="Добавить событие" tone="soft" onPress={() => openBlockModal(startDate)} />}
           <Pressable onPress={() => setStartDate(todayKey)} style={styles.todayBtn}>
             <Text style={styles.todayBtnT}>Сегодня</Text>
           </Pressable>
@@ -569,7 +599,7 @@ export default function CalendarScreen({ navigation, route }) {
       <Popup
         visible={blockModal}
         onClose={() => setBlockModal(false)}
-        title={blockEditId ? "Закрытое время" : "Закрыть время"}
+        title={blockEditId ? "Своё дело" : "Добавить событие"}
       >
         <Text style={styles.label}>Дата</Text>
         <View style={styles.chipsRow}>
@@ -583,7 +613,7 @@ export default function CalendarScreen({ navigation, route }) {
         <TextInput
           value={blockForm.title}
           onChangeText={(v) => setBlockForm((b) => ({ ...b, title: v }))}
-          placeholder="Закрыто"
+          placeholder="Например: обед, учёба, личное"
           placeholderTextColor={C.inkSoft}
           style={styles.input}
         />
@@ -613,7 +643,7 @@ export default function CalendarScreen({ navigation, route }) {
             <View style={{ flex: 1 }}><PrimaryButton title="Отмена" tone="soft" onPress={() => setBlockModal(false)} /></View>
           )}
           <View style={{ flex: 1 }}>
-            <PrimaryButton title={blockEditId ? "Сохранить" : "Закрыть время"} tone="accent" onPress={saveBlock} />
+            <PrimaryButton title={blockEditId ? "Сохранить" : "Добавить"} tone="accent" onPress={saveBlock} />
           </View>
         </View>
       </Popup>
@@ -647,6 +677,33 @@ export default function CalendarScreen({ navigation, route }) {
                 style={styles.timeInput}
               />
             </View>
+            <Text style={styles.hint}>
+              Рабочие часы в календаре подсвечены белым — на это время клиент
+              сможет записаться онлайн.
+            </Text>
+
+            <Text style={styles.label}>Отображать на ленте</Text>
+            <View style={styles.rowInputs}>
+              <TextInput
+                value={schedule.viewStart}
+                onChangeText={(v) => setSchedule((s) => ({ ...s, viewStart: maskTime(v) }))}
+                onBlur={() => setSchedule((s) => ({ ...s, viewStart: normalizeTime(s.viewStart) }))}
+                placeholder="07:00" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+                style={styles.timeInput}
+              />
+              <Text style={{ color: C.inkSoft }}>—</Text>
+              <TextInput
+                value={schedule.viewEnd}
+                onChangeText={(v) => setSchedule((s) => ({ ...s, viewEnd: maskTime(v) }))}
+                onBlur={() => setSchedule((s) => ({ ...s, viewEnd: normalizeTime(s.viewEnd) }))}
+                placeholder="22:00" placeholderTextColor={C.inkSoft} keyboardType="numeric" maxLength={5}
+                style={styles.timeInput}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Какой промежуток суток виден в календаре. Время вне рабочих часов
+              серое, но записи и свои дела на него ставить можно.
+            </Text>
             <Text style={styles.label}>Период действия (пусто = бессрочно) — нажмите, чтобы выбрать дату</Text>
             <View style={styles.rowInputs}>
               <Pressable
@@ -709,8 +766,12 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", paddingHorizontal: 16 },
   hourLabelBox: { alignItems: "flex-start" },
   hourLabel: { fontSize: 10, color: C.inkSoft, marginTop: -6 },
-  dayCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: C.line, position: "relative" },
-  dayColOff: { backgroundColor: C.lineSoft },
+  dayCol: {
+    flex: 1, borderLeftWidth: 1, borderLeftColor: C.line, position: "relative",
+    backgroundColor: C.lineSoft, // нерабочее время — серое
+  },
+  workBand: { position: "absolute", left: 0, right: 0, backgroundColor: C.surface },
+  hint: { fontSize: 11, color: C.inkSoft, lineHeight: 15, marginTop: -2, marginBottom: 10 },
   eventBox: {
     position: "absolute", left: 3, right: 3, borderRadius: 8, padding: 4,
     backgroundColor: C.primarySoft, borderLeftWidth: 3, borderLeftColor: C.primary, overflow: "hidden",

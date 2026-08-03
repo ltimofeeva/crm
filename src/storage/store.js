@@ -369,14 +369,26 @@ export async function deleteContentItem(section, id) {
 //   from: "ГГГГ-ММ-ДД" | "", to: "ГГГГ-ММ-ДД" | "" } (0 = воскресенье)
 // from/to — период действия графика; пустые = бессрочно.
 
+// Рабочий график.
+// start/end   — рабочие часы: в календаре подсвечены белым, на них можно
+//               будет записаться онлайн.
+// viewStart/viewEnd — какой промежуток суток вообще показывать на ленте.
+//               Время вне рабочих часов остаётся серым, но на него по-прежнему
+//               можно поставить запись или своё дело.
 export async function getSchedule() {
-  return read(KEYS.schedule, {
+  const def = {
     days: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: false, 0: false },
     start: "10:00",
     end: "19:00",
+    viewStart: "07:00",
+    viewEnd: "22:00",
     from: "",
     to: "",
-  });
+  };
+  const saved = await read(KEYS.schedule, null);
+  if (!saved) return def;
+  // У графиков, сохранённых до появления настройки, полей окна нет.
+  return { ...def, ...saved };
 }
 
 export async function saveSchedule(schedule) {
