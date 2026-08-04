@@ -344,6 +344,14 @@ export default function SettingsScreen({ navigation, route }) {
                 <Text style={styles.hint}>Ссылка появится, когда будет связь с сервером.</Text>
               )}
 
+              {!products.some((p) => p.online) ? (
+                <Text style={styles.warn}>
+                  Ни одна услуга пока не открыта для записи — клиенту нечего будет
+                  выбрать. Отметьте нужные галочкой «Доступна для онлайн-записи»
+                  в разделе «Продукты (услуги)» выше.
+                </Text>
+              ) : null}
+
               <FieldLabel
                 text="Шаг окошек"
                 hint="Интервалы времени, которые увидят клиенты. Например, 60 — окошки в 10:00, 11:00, 12:00; 30 — ещё и в 10:30, 11:30."
@@ -525,6 +533,11 @@ const styles = StyleSheet.create({
     textAlign: "center", includeFontPadding: false,
   },
   qmTOn: { color: C.white },
+  warn: {
+    backgroundColor: C.dangerSoft, borderRadius: R.md,
+    paddingHorizontal: 12, paddingVertical: 10, marginTop: 12,
+    fontSize: 12, lineHeight: 16, color: C.danger,
+  },
   tip: {
     backgroundColor: C.primarySoft, borderRadius: R.md,
     paddingHorizontal: 12, paddingVertical: 10,

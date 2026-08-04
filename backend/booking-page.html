@@ -252,7 +252,7 @@
   get("/api/z/" + encodeURIComponent(slug))
     .then(function (r) {
       info = r;
-      if (!info.products.length) return fail("Специалист пока не открыл ни одной услуги для онлайн-записи.");
+      if (!info.products.length) return fail("Специалист пока не открыл ни одной услуги для онлайн-записи. Напишите ему напрямую — он подскажет удобное время.");
       render();
     })
     .catch(function (e) { fail(e.message); });
