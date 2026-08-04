@@ -89,6 +89,9 @@
   var days = [];        // свободные дни с окошками
   var date = null, time = null;
   var via = "Телеграм";
+  // Имя и контакт держим в переменных: экран перерисовывается целиком
+  // (выбор мессенджера, ошибка проверки), и без этого введённое пропадает.
+  var name = "", contact = "", agree = false;
   var busy = false, error = "";
 
   var MON = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
@@ -161,15 +164,15 @@
     if (product && date && time) {
       h += '<div class="step">3. Ваши контакты</div><div class="card">';
       h += "<label>Как вас зовут</label>";
-      h += '<input type="text" id="nm" placeholder="Имя и фамилия" autocomplete="name" />';
+      h += '<input type="text" id="nm" placeholder="Имя и фамилия" autocomplete="name" value="' + esc(name) + '" />';
       h += "<label>Куда написать</label>";
       h += '<div class="via">';
       ["Телеграм", "ВК", "МАКС", "По телефону"].forEach(function (v) {
         h += '<button class="slot' + (via === v ? " on" : "") + '" data-v="' + esc(v) + '">' + esc(v) + "</button>";
       });
       h += "</div>";
-      h += '<input type="text" id="ct" placeholder="Телефон или ник" autocomplete="tel" style="margin-top:8px" />';
-      h += '<div class="check"><input type="checkbox" id="ag" />' +
+      h += '<input type="text" id="ct" placeholder="Телефон или ник" autocomplete="tel" style="margin-top:8px" value="' + esc(contact) + '" />';
+      h += '<div class="check"><input type="checkbox" id="ag"' + (agree ? " checked" : "") + " />" +
         "<span>Я согласен(на) на обработку моих персональных данных для записи на приём</span></div>";
       h += '<button class="go" id="send"' + (busy ? " disabled" : "") + ">" +
         (busy ? "Записываем…" : "Записаться") + "</button>";
@@ -208,9 +211,9 @@
   }
 
   function send() {
-    var nm = document.getElementById("nm").value.trim();
-    var ct = document.getElementById("ct").value.trim();
-    var ag = document.getElementById("ag").checked;
+    var nm = name.trim();
+    var ct = contact.trim();
+    var ag = agree;
     if (nm.length < 2) { error = "Напишите, пожалуйста, как вас зовут."; return render(); }
     if (ct.length < 5) { error = "Укажите телефон или ник, чтобы с вами связались."; return render(); }
     if (!ag) { error = "Отметьте согласие на обработку персональных данных."; return render(); }
@@ -244,9 +247,14 @@
     if (t.id === "send") return send();
   });
 
-  // Поля ввода не должны сбрасываться при перерисовке — сохраняем значения.
+  // Поля ввода не должны сбрасываться при перерисовке — храним значения
+  // в переменных и подставляем их обратно в разметку.
   app.addEventListener("input", function (ev) {
-    if (ev.target.id === "nm" || ev.target.id === "ct") ev.target.setAttribute("value", ev.target.value);
+    if (ev.target.id === "nm") name = ev.target.value;
+    if (ev.target.id === "ct") contact = ev.target.value;
+  });
+  app.addEventListener("change", function (ev) {
+    if (ev.target.id === "ag") agree = ev.target.checked;
   });
 
   get("/api/z/" + encodeURIComponent(slug))
